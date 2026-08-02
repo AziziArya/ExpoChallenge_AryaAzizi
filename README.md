@@ -199,6 +199,21 @@ https://aryahub.ir
 
 ---
 
+# Challenge Submission
+
+Repository created for the Innoverse programming challenge.
+
+The solution implements an AI-powered Mental Health Safety Analyzer capable of:
+
+- Emotional distress detection
+- Crisis signal analysis
+- Conversation pattern analysis
+- Explainable risk assessment
+- Safety response generation
+- Human review recommendations
+
+The system was designed as a decision-support prototype and does not replace professional mental health services.
+
 # License
 
 MIT License
