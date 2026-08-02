@@ -5,8 +5,8 @@
 ![Release](https://img.shields.io/github/v/release/AziziArya/Mental-Health-Safety-Analyzer)
 ![Tests](https://img.shields.io/badge/Tests-12%2F12-success)
 ![Coverage](https://img.shields.io/badge/Coverage-80%25-brightgreen)
-![CI](https://github.com/AziziArya/Mental-Health-Safety-Analyzer/actions/workflows/tests.yml/badge.svg)
-![Code Quality](https://github.com/AziziArya/Mental-Health-Safety-Analyzer/actions/workflows/code_quality.yml/badge.svg)
+![CI](https://github.com/AziziArya/ExpoChallenge_AryaAzizi/actions/workflows/tests.yml/badge.svg)
+![Code Quality](https://github.com/AziziArya/ExpoChallenge_AryaAzizi/actions/workflows/code_quality.yml/badge.svg)
 
 An AI-powered mental health conversation safety analysis system designed to detect emotional distress, crisis signals, conversation deterioration, and generate explainable safety decisions.
 
@@ -59,14 +59,57 @@ Main documentation areas:
 # Installation
 
 ```bash
-git clone https://github.com/AziziArya/Mental-Health-Safety-Analyzer.git
+git clone https://github.com/AziziArya/ExpoChallenge_AryaAzizi.git
 
 cd Mental-Health-Safety-Analyzer
 
 pip install -r requirements.txt
 ```
+Initialize the database:
+
+```bash
+python backend/database/init_db.py
+```
+
+Run the backend server:
+
+```bash
+python backend/app.py
+```
+
+Backend API:
+
+```
+http://127.0.0.1:8000
+```
 
 ---
+
+
+## Frontend
+
+The React dashboard source code is located in:
+
+```
+mhsa-frontend-source/mhsa-frontend
+```
+
+Run it using:
+
+```bash
+cd mhsa-frontend-source/mhsa-frontend
+
+npm install
+
+npm run dev
+```
+
+Default frontend:
+
+```
+http://localhost:5173
+``` 
+
 
 # Running Tests
 
@@ -82,6 +125,53 @@ Current testing status:
 - ✅ Approximately 80% Test Coverage
 
 ---
+
+## API Example
+
+Analyze a conversation:
+
+```http
+POST /analyze
+```
+
+Example body:
+
+```json
+{
+  "messages":[
+    "I feel exhausted.",
+    "I don't enjoy anything anymore.",
+    "Sometimes I think disappearing would be easier."
+  ]
+}
+```
+
+The API returns:
+
+- Timeline analysis
+- Overall risk
+- Explainability report
+- Recommended actions
+- Safety response
+
+## Project Structure
+
+```
+backend/
+    FastAPI application
+
+src/
+    AI pipeline modules
+
+tests/
+    Unit tests
+
+docs/
+    Design and architecture
+
+mhsa-frontend-source/
+    React dashboard
+```
 
 # Technology Stack
 
@@ -153,35 +243,15 @@ Future versions aim to support clinicians by providing explainable conversation 
 
 ---
 
-# Release
-
-Current stable release:
-
-**v1.1.0**
-
-Latest improvements include:
-
-- Improved CI/CD pipeline
-- Automated testing
-- Automated code quality checks
-- Comprehensive project documentation
-- GitHub Issue Templates
-- Pull Request Template
-- Contribution Guide
-- Security Policy
-- Repository engineering improvements
-
----
-
 # Repository
 
 GitHub Repository
 
-https://github.com/AziziArya/Mental-Health-Safety-Analyzer
+https://github.com/AziziArya/ExpoChallenge_AryaAzizi
 
 Latest Release
 
-https://github.com/AziziArya/Mental-Health-Safety-Analyzer/releases
+https://github.com/AziziArya/ExpoChallenge_AryaAzizi/releases
 
 ---
 
@@ -201,7 +271,15 @@ https://aryahub.ir
 
 # Challenge Submission
 
-Repository created for the Innoverse programming challenge.
+This repository contains my submission for the Innoverse Programming Challenge.
+
+The project provides an end-to-end AI-assisted Mental Health Safety Analysis platform including:
+
+- Backend risk analysis engine
+- Explainable AI decision pipeline
+- REST API
+- Interactive React dashboard
+- Human review workflow
 
 The solution implements an AI-powered Mental Health Safety Analyzer capable of:
 
