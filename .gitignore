@@ -77,4 +77,4 @@ node_modules/
 
 reset_db.py
 mhsa-frontend-dist/
-node_modules/
+node_modules/mental_health.db

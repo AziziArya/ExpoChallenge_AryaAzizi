@@ -6,7 +6,7 @@ from src.conversation_pattern.pattern import ConversationPatternAnalyzer
 from src.decision_engine.decision import DecisionEngine
 from src.emotion_evolution.evolution import EmotionEvolutionAnalyzer
 from src.explainability.xai import XAIEngine
-from src.fusion_engine.fusion import FusionEngine
+from src.context_fusion.fusion import ContextFusionEngine
 from src.logging.audit import AuditLogger
 from src.logging.logger import logger
 from src.pipeline.analyzer import MentalHealthAnalyzer
@@ -28,7 +28,7 @@ emotion_evolution = EmotionEvolutionAnalyzer()
 
 pattern_analyzer = ConversationPatternAnalyzer()
 
-context_fusion = FusionEngine()
+context_fusion = ContextFusionEngine()
 
 decision_engine = DecisionEngine()
 
