@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 
+from src.context_fusion.fusion import ContextFusionEngine
 from src.context_memory.memory import ContextMemory
 from src.conversation_analyzer.conversation import ConversationAnalyzer
 from src.conversation_pattern.pattern import ConversationPatternAnalyzer
 from src.decision_engine.decision import DecisionEngine
 from src.emotion_evolution.evolution import EmotionEvolutionAnalyzer
 from src.explainability.xai import XAIEngine
-from src.context_fusion.fusion import ContextFusionEngine
 from src.logging.audit import AuditLogger
 from src.logging.logger import logger
 from src.pipeline.analyzer import MentalHealthAnalyzer
