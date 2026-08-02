@@ -1,6 +1,3 @@
-from typing import Dict
-
-
 class ContextFusionEngine:
     """
     Context Fusion Engine
@@ -69,21 +66,13 @@ class ContextFusionEngine:
 
         score = 0
 
-        isolation = self._normalize(
-            patterns.get("isolation_score", 0)
-        )
+        isolation = self._normalize(patterns.get("isolation_score", 0))
 
-        hopelessness = self._normalize(
-            patterns.get("hopelessness_score", 0)
-        )
+        hopelessness = self._normalize(patterns.get("hopelessness_score", 0))
 
-        passive = self._normalize(
-            patterns.get("passive_crisis_score", 0)
-        )
+        passive = self._normalize(patterns.get("passive_crisis_score", 0))
 
-        negative = self._normalize(
-            patterns.get("negative_language_score", 0)
-        )
+        negative = self._normalize(patterns.get("negative_language_score", 0))
 
         score += isolation * 0.20
         score += hopelessness * 0.35
@@ -131,21 +120,13 @@ class ContextFusionEngine:
         memory_context=None,
     ):
 
-        base_score = self._normalize(
-            base_risk.get("score", 0)
-        )
+        base_score = self._normalize(base_risk.get("score", 0))
 
-        emotion_score = self._emotion_score(
-            emotion_evolution
-        )
+        emotion_score = self._emotion_score(emotion_evolution)
 
-        pattern_score = self._pattern_score(
-            conversation_patterns
-        )
+        pattern_score = self._pattern_score(conversation_patterns)
 
-        memory_score = self._memory_score(
-            memory_context
-        )
+        memory_score = self._memory_score(memory_context)
 
         final_score = (
             base_score * self.weights["base_risk"]
@@ -157,26 +138,30 @@ class ContextFusionEngine:
         reasons = []
 
         if emotion_score >= 0.6:
-            reasons.append(
-                "Negative emotional escalation detected"
-            )
+            reasons.append("Negative emotional escalation detected")
 
         if pattern_score >= 0.4:
-            reasons.append(
-                "Conversation deterioration detected"
-            )
+            reasons.append("Conversation deterioration detected")
 
         crisis_override = False
 
-        passive = conversation_patterns.get(
-            "passive_crisis_score",
-            0,
-        ) if conversation_patterns else 0
+        passive = (
+            conversation_patterns.get(
+                "passive_crisis_score",
+                0,
+            )
+            if conversation_patterns
+            else 0
+        )
 
-        hopelessness = conversation_patterns.get(
-            "hopelessness_score",
-            0,
-        ) if conversation_patterns else 0
+        hopelessness = (
+            conversation_patterns.get(
+                "hopelessness_score",
+                0,
+            )
+            if conversation_patterns
+            else 0
+        )
 
         # -------------------------
         # Passive SI + Hopelessness
@@ -188,9 +173,7 @@ class ContextFusionEngine:
 
             final_score = max(final_score, 0.65)
 
-            reasons.append(
-                "Passive crisis combined with hopelessness"
-            )
+            reasons.append("Passive crisis combined with hopelessness")
 
         # -------------------------
         # Strong passive crisis
@@ -202,9 +185,7 @@ class ContextFusionEngine:
 
             final_score = max(final_score, 0.75)
 
-            reasons.append(
-                "Strong passive suicidal indicators"
-            )
+            reasons.append("Strong passive suicidal indicators")
 
         # -------------------------
         # Emergency
@@ -216,9 +197,7 @@ class ContextFusionEngine:
 
             final_score = 0.90
 
-            reasons.append(
-                "Critical crisis override"
-            )
+            reasons.append("Critical crisis override")
 
         final_score = round(min(final_score, 1), 4)
 
@@ -238,37 +217,27 @@ class ContextFusionEngine:
             level = "Safe"
 
         return {
-
             "contextual_risk_score": final_score,
-
             "contextual_risk_level": level,
-
             "final_context_score": final_score,
-
             "final_context_level": level,
-
             "emotion_context_score": round(
                 emotion_score,
                 4,
             ),
-
             "pattern_context_score": round(
                 pattern_score,
                 4,
             ),
-
             "memory_context_score": round(
                 memory_score,
                 4,
             ),
-
             "crisis_override": crisis_override,
-
             "crisis_probability": max(
                 passive,
                 hopelessness,
             ),
-
             "context_reasons": reasons,
         }
 

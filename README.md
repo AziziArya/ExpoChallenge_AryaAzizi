@@ -61,7 +61,7 @@ Main documentation areas:
 ```bash
 git clone https://github.com/AziziArya/ExpoChallenge_AryaAzizi.git
 
-cd Mental-Health-Safety-Analyzer
+cd ExpoChallenge_AryaAzizi
 
 pip install -r requirements.txt
 ```
@@ -132,6 +132,7 @@ http://localhost:5173
 API Documentation:
 http://127.0.0.1:8000/docs
 
+The demo can be tested locally by running both backend and frontend services.
 
 # Running Tests
 
