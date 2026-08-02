@@ -1,0 +1,170 @@
+/* ==========================================================================
+   Design Tokens — Mental Health Safety Analyzer
+   Source of truth: design.md, frontend_architecture.md,
+   Design-System-Ratification-Final-UX-Decisions.md
+   No token here introduces a value not described in those documents.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* Color System — design.md "Color System" (role names are canonical;
+     hex values are the implementation choice, see tailwind.config.js note).
+     Semantic/state colors (primary, success, warning, danger, etc.) stay
+     fixed across themes by design — only neutral surface/border/text
+     tokens below are theme-reactive. */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-secondary: #7c3aed;
+  --color-accent: #0891b2;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger-high: #ea580c;
+  --color-danger: #dc2626;
+
+  /* Neutral tokens — RGB triplets (no commas) so tailwind.config.js can
+     wire them up as `rgb(var(--x) / <alpha-value>)`, which is what makes
+     every existing `bg-surface-light`, `border-border-light`,
+     `text-foreground-light(-muted)` class across the whole app
+     automatically react to the current theme — no component file has to
+     change. Previously these were plain hex in both this file's dark
+     override AND in tailwind.config.js's literal color values, so the
+     dark override here was defined but never actually consumed anywhere:
+     toggling theme changed `data-theme` (and the Top Nav icon) but no
+     surface/text color on any page ever changed. */
+  --surface: 255 255 255;
+  --surface-muted: 250 250 250;
+  --border: 228 228 231;
+  --foreground: 24 24 27;
+  --foreground-muted: 107 114 128;
+
+  /* Spacing — design.md "Spacing System", strict 8-point scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  /* Radius — design.md "Border Radius" (Card fixed 20px per Ratification FD-1) */
+  --radius-card: 20px;
+  --radius-button: 14px;
+  --radius-input: 14px;
+  --radius-modal: 24px;
+
+  /* Motion — design.md "Global Motion Rules" (600ms hard ceiling, never exceeded) */
+  --motion-fast: 120ms;
+  --motion-normal: 220ms;
+  --motion-slow: 350ms;
+  --motion-max: 600ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Layout — design.md "Layout Rules" / frontend_architecture.md §3 */
+  --content-max-width: 1440px;
+  --reading-max-width: 720px;
+  --outer-margin-desktop: 64px;
+  --outer-margin-laptop: 48px;
+  --outer-margin-tablet: 40px;
+  --outer-margin-mobile: 20px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  /* Dark Mode — design.md: "Deep Gray instead of pure black" */
+  --surface: 24 24 27;
+  --surface-muted: 33 33 38;
+  --border: 46 46 51;
+  --foreground: 244 244 245;
+  --foreground-muted: 156 163 175;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+  background-color: rgb(var(--surface-muted));
+  color: rgb(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular figures for numeric displays — design.md Typography rule */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Accessibility — components.md "Focus": always visible, never removed */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Motion Accessibility — design.md / frontend_architecture.md §12.4:
+   respect prefers-reduced-motion globally, not per-component */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Manual override — Settings > Appearance > "Reduce motion" toggle
+   (settings_spec.md §5). Same effect as the OS-level media query above,
+   applied explicitly via a root data attribute. */
+[data-reduced-motion="true"] *,
+[data-reduced-motion="true"] *::before,
+[data-reduced-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Increase Contrast — settings_spec.md §8: "Strengthens borders and text
+   contrast beyond the standard theme." Darkens borders/muted text in
+   light mode, lightens them in dark mode, without introducing new colors. */
+:root[data-contrast="true"] {
+  --border: 161 161 170;
+  --foreground-muted: 63 63 70;
+}
+:root[data-theme="dark"][data-contrast="true"] {
+  --border: 113 113 122;
+  --foreground-muted: 212 212 216;
+}
+
+/* Underline Links — settings_spec.md §8: "Adds a permanent underline to
+   text links, useful if color alone is hard to distinguish." */
+[data-underline-links="true"] a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Text Size — settings_spec.md §8. Scales the root font-size so every
+   Tailwind rem-based type size (H1/H2/Body/Caption) scales proportionally
+   with zero per-component changes. */
+:root[data-text-size="large"] {
+  font-size: 112.5%; /* 18px base */
+}
+:root[data-text-size="xl"] {
+  font-size: 125%; /* 20px base */
+}

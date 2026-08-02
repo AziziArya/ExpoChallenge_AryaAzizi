@@ -5,87 +5,139 @@ class XAIEngine:
     """
     Explainability engine.
 
-    Converts internal safety decisions
-    into human-readable explanations.
+    Converts internal safety decisions into
+    human-readable explanations.
 
-    This module does not diagnose.
-
-    It explains:
-    - final risk decision
-    - contributing factors
-    - model reasoning
-    - memory influence
+    Does not diagnose.
     """
 
     def __init__(self):
         pass
 
     # =====================================
-    # Risk Summary
+    # Summary
     # =====================================
 
     def _summary(self, level: str, score: float) -> str:
 
-        summaries = {
-            "Critical Emergency": (
-                "The system detected a critical "
-                "safety pattern requiring immediate "
-                "attention."
-            ),
-            "High Risk": (
-                "The system detected multiple "
-                "elevated safety indicators and "
-                "recommends closer monitoring."
-            ),
-            "Moderate Risk": (
-                "The system detected emotional "
-                "distress indicators requiring "
-                "continued observation."
-            ),
-            "Mild Concern": ("The system detected mild concern " "signals."),
-            "Safe": ("No significant safety risk indicators " "were detected."),
-        }
+        if level == "Critical Emergency":
+            return (
+                "The system detected multiple high-confidence safety "
+                "signals suggesting immediate human review."
+            )
 
-        return summaries.get(level, "Risk assessment completed.")
+        if level == "High Risk":
+            return (
+                "Several clinically relevant safety indicators were "
+                "identified that warrant prompt human review."
+            )
+
+        if level == "Moderate Risk":
+            return (
+                "The conversation contains persistent emotional distress "
+                "that should continue to be monitored."
+            )
+
+        if level == "Mild Concern":
+            return (
+                "Some emotional distress indicators were detected."
+            )
+
+        return "No significant safety indicators were detected."
 
     # =====================================
-    # Signal Explanation
+    # Signal Mapping
     # =====================================
 
-    def _explain_signals(self, signals: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _signal_mapping(self):
 
-        mapping = {
-            "crisis_signal": {"factor": "Crisis language", "impact": "High"},
-            "critical_crisis": {
-                "factor": "Emergency crisis indicator",
-                "impact": "Critical",
-            },
-            "emotional_escalation": {
-                "factor": "Negative emotional escalation",
-                "impact": "Medium",
-            },
-            "conversation_deterioration": {
-                "factor": "Conversation deterioration",
-                "impact": "Medium",
-            },
-            "history_increase": {"factor": "Risk increase in history", "impact": "Low"},
-            "context_risk_high": {"factor": "High contextual risk", "impact": "High"},
+        return {
+
+            "critical_crisis": (
+                "Critical crisis detected",
+                "Critical"
+            ),
+
+            "crisis_signal": (
+                "Direct crisis language",
+                "High"
+            ),
+
+            "passive_crisis_detected": (
+                "Passive suicidal ideation",
+                "High"
+            ),
+
+            "hopelessness_detected": (
+                "Hopelessness",
+                "Medium"
+            ),
+
+            "isolation_detected": (
+                "Social isolation",
+                "Medium"
+            ),
+
+            "negative_language_detected": (
+                "Negative language",
+                "Low"
+            ),
+
+            "emotional_escalation": (
+                "Emotional escalation",
+                "Medium"
+            ),
+
+            "conversation_deterioration": (
+                "Conversation deterioration",
+                "Medium"
+            ),
+
+            "history_increase": (
+                "Historical risk increase",
+                "Low"
+            ),
+
+            "context_risk_high": (
+                "High contextual risk",
+                "High"
+            ),
         }
+
+    # =====================================
+    # Explain Signals
+    # =====================================
+
+    def _explain_signals(
+        self,
+        signals: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+
+        mapping = self._signal_mapping()
 
         result = []
 
         for key, value in signals.items():
 
-            if value and key in mapping:
+            if not value:
+                continue
 
-                result.append(
-                    {
-                        "factor": mapping[key]["factor"],
-                        "impact": mapping[key]["impact"],
-                        "signal": key,
-                        "active": True,
-                    }
-                )
+            if key not in mapping:
+                continue
+
+            factor, impact = mapping[key]
+
+            result.append({
+
+                "factor": factor,
+
+                "impact": impact,
+
+                "signal": key,
+
+                "active": True
+
+            })
 
         return result
 
@@ -93,24 +145,62 @@ class XAIEngine:
     # Reasoning Chain
     # =====================================
 
-    def _reasoning_chain(self, signals: Dict[str, Any]) -> List[str]:
+    def _reasoning_chain(
+        self,
+        signals: Dict[str, Any]
+    ) -> List[str]:
 
         chain = []
 
-        rules = {
-            "critical_crisis": "Critical crisis indicator increased emergency priority",
-            "crisis_signal": "Crisis language increased safety risk",
-            "emotional_escalation": "Negative emotional escalation detected",
-            "conversation_deterioration": "Conversation deterioration pattern detected",
-            "history_increase": "Previous risk history increased concern",
-            "context_risk_high": "High contextual safety risk detected",
-        }
+        if signals.get("critical_crisis"):
+            chain.append(
+                "Critical crisis indicators were detected."
+            )
 
-        for key, text in rules.items():
+        if signals.get("crisis_signal"):
+            chain.append(
+                "Direct crisis language increased safety priority."
+            )
 
-            if signals.get(key):
+        if signals.get("passive_crisis_detected"):
+            chain.append(
+                "Passive suicidal ideation was detected."
+            )
 
-                chain.append(text)
+        if signals.get("hopelessness_detected"):
+            chain.append(
+                "Hopelessness indicators strengthened overall concern."
+            )
+
+        if signals.get("isolation_detected"):
+            chain.append(
+                "Social isolation indicators were detected."
+            )
+
+        if signals.get("negative_language_detected"):
+            chain.append(
+                "Negative language contributed to risk estimation."
+            )
+
+        if signals.get("emotional_escalation"):
+            chain.append(
+                "Negative emotional escalation was detected."
+            )
+
+        if signals.get("conversation_deterioration"):
+            chain.append(
+                "Conversation deterioration pattern was detected."
+            )
+
+        if signals.get("history_increase"):
+            chain.append(
+                "Historical risk trend increased concern."
+            )
+
+        if signals.get("context_risk_high"):
+            chain.append(
+                "Contextual safety assessment was elevated."
+            )
 
         return chain
 
@@ -119,44 +209,117 @@ class XAIEngine:
     # =====================================
 
     def generate(
-        self, decision: Dict[str, Any], memory_context: Dict[str, Any] = None
+        self,
+        decision: Dict[str, Any],
+        memory_context: Dict[str, Any] = None
     ) -> Dict[str, Any]:
 
         memory_context = memory_context or {}
 
-        level = decision.get("final_risk_level", "Unknown")
-
-        score = decision.get("final_risk_score", 0)
-
         signals = decision.get("signals", {})
-
-        reasons = decision.get("decision_reasons", [])
-
-        actions = decision.get("recommended_actions", [])
 
         signal_analysis = self._explain_signals(signals)
 
         reasoning = self._reasoning_chain(signals)
 
+        reasons = list(
+            decision.get(
+                "decision_reasons",
+                []
+            )
+        )
+
+        for item in reasoning:
+
+            if item not in reasons:
+                reasons.append(item)
+
         return {
-            "risk_level": level,
-            "risk_score": score,
-            "summary": self._summary(level, score),
-            # Old tests compatibility
-            "key_factors": signal_analysis,
-            "reasons": reasons,
-            "recommended_actions": actions,
-            "signal_analysis": signal_analysis,
+
+            "risk_level":
+                decision.get(
+                    "final_risk_level",
+                    "Unknown"
+                ),
+
+            "risk_score":
+                decision.get(
+                    "final_risk_score",
+                    0
+                ),
+
+            "summary":
+                self._summary(
+                    decision.get(
+                        "final_risk_level",
+                        "Unknown"
+                    ),
+                    decision.get(
+                        "final_risk_score",
+                        0
+                    ),
+                ),
+
+            "key_factors":
+                signal_analysis,
+
+            "reasons":
+                reasons,
+
+            "recommended_actions":
+                decision.get(
+                    "recommended_actions",
+                    []
+                ),
+
+            "signal_analysis":
+                signal_analysis,
+
             "model_reasoning": {
-                "decision_score": score,
-                "active_signals": [key for key, value in signals.items() if value],
-                "reasoning_chain": reasoning,
+
+                "decision_score":
+                    decision.get(
+                        "final_risk_score",
+                        0
+                    ),
+
+                "active_signals": [
+
+                    key
+
+                    for key, value in signals.items()
+
+                    if value
+
+                ],
+
+                "reasoning_chain":
+                    reasoning,
+
             },
+
             "memory_influence": {
-                "risk_change": memory_context.get("risk_change", 0),
-                "trend": memory_context.get("trend", "Unknown"),
-                "previous_risk": memory_context.get("previous_risk", "Unknown"),
+
+                "risk_change":
+                    memory_context.get(
+                        "risk_change",
+                        0
+                    ),
+
+                "trend":
+                    memory_context.get(
+                        "trend",
+                        "Unknown"
+                    ),
+
+                "previous_risk":
+                    memory_context.get(
+                        "previous_risk",
+                        "Unknown"
+                    ),
+
             },
+
         }
 
 
@@ -164,24 +327,15 @@ class XAIEngine:
 # Backward Compatibility
 # =====================================
 
-# ==================================
-# Backward Compatibility Layer
-# ==================================
-
-
 class ExplainabilityEngine(XAIEngine):
-    """
-    Backward compatible wrapper.
 
-    Old tests and external modules
-    can still use ExplainabilityEngine.
-    """
+    def explain(
+        self,
+        decision,
+        memory_context=None
+    ):
 
-    def explain(self, decision, memory_context=None):
-
-        result = self.generate(decision, memory_context)
-
-        # Old test expects key_factors
-        result["key_factors"] = result.get("signal_analysis", [])
-
-        return result
+        return self.generate(
+            decision,
+            memory_context
+        )

@@ -22,9 +22,8 @@ Current development phase:
 - ✅ AI Pipeline
 - ✅ Automated Testing
 - ✅ Documentation
-- ✅ GitHub CI/CD
-- ⏳ UI / UX (In Progress)
-- ⏳ Interactive Demo (Coming Soon)
+- ✅ Frontend Dashboard
+- ✅ Interactive Demo
 
 ---
 
@@ -32,14 +31,12 @@ Current development phase:
 
 Detailed documentation is available inside the **docs/** directory.
 
-- architecture.md
-- pipeline.md
-- models_and_ai.md
-- privacy_and_safety.md
-- testing_and_evaluation.md
-- api_documentation.md
-- release_notes.md
-- future_improvements.md
+Main documentation areas:
+
+- docs/design/        UX specifications and frontend architecture
+- backend/            API, database, and service implementation
+- src/                AI analysis pipeline modules
+- tests/              Automated testing suite
 
 ---
 
@@ -90,14 +87,16 @@ Current testing status:
 
 - Python 3.10
 - FastAPI
-- PyTorch
-- TensorFlow
+- SQLAlchemy
+- PyTest
 - Transformers
 - Scikit-learn
 - Pandas
 - NumPy
-- SQLAlchemy
-- PyTest
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
 
 ---
 

@@ -1,19 +1,19 @@
-from typing import Dict, List
+from typing import List
 
 
 class ConversationPatternAnalyzer:
     """
-    Analyze conversation-level psychological patterns.
+    Conversation safety pattern analyzer.
 
     Detects:
     - Social isolation
     - Hopelessness
-    - Negative language
-    - Escalation patterns
-    - Emotional deterioration
+    - Negative emotional state
+    - Passive suicidal ideation
+    - Active crisis language
+    - Conversation deterioration
 
-    This module does not diagnose.
-    It provides conversation risk signals.
+    Does not diagnose.
     """
 
     def __init__(self):
@@ -25,17 +25,28 @@ class ConversationPatternAnalyzer:
             "no one understands",
             "nobody cares",
             "no one cares",
+            "avoiding people",
+            "stopped replying",
+            "disconnected",
+            "keeping everything inside",
         ]
+
 
         self.hopelessness_keywords = [
             "hopeless",
             "nothing will change",
             "no future",
             "cannot continue",
-            "there is no hope",
+            "can't continue",
+            "cannot handle anymore",
+            "can't handle anymore",
+            "no hope",
             "give up",
             "pointless",
+            "no way out",
+            "tired of fighting",
         ]
+
 
         self.negative_keywords = [
             "sad",
@@ -45,118 +56,349 @@ class ConversationPatternAnalyzer:
             "broken",
             "lost",
             "worthless",
+            "exhausted",
+            "stressed",
+            "stress",
         ]
 
-        self.crisis_keywords = [
-            "don't want to live",
-            "do not want to live",
+
+        self.passive_crisis_keywords = [
+
+            "disappear",
+
+            "if i disappeared",
+
+            "wish i could disappear",
+
+            "better if i was gone",
+
+            "better without me",
+
+            "everyone would be better without me",
+
+            "nobody would notice",
+
+            "people would have less problems because of me",
+
+            "less problems without me",
+
+            "not around anymore",
+
+        ]
+
+
+        self.active_crisis_keywords = [
+
             "want to die",
+
+            "don't want to live",
+
+            "do not want to live",
+
             "kill myself",
+
             "end my life",
+
+            "suicide",
+
+            "harm myself",
+
         ]
 
-    def _contains_pattern(self, text: str, keywords: List[str]) -> bool:
 
-        text = text.lower()
 
-        for keyword in keywords:
+    def _normalize(self, text:str):
 
-            if keyword in text:
-                return True
+        return (
+            text
+            .lower()
+            .replace("’","'")
+            .strip()
+        )
 
-        return False
 
-    def _count_patterns(self, messages: List[str], keywords: List[str]) -> int:
 
-        count = 0
+    def _contains_pattern(
+        self,
+        text:str,
+        keywords:list
+    ):
+
+        text=self._normalize(text)
+
+        return any(
+            keyword in text
+            for keyword in keywords
+        )
+
+
+
+    def _count_patterns(
+        self,
+        messages:List[str],
+        keywords:list
+    ):
+
+        count=0
 
         for message in messages:
 
-            if self._contains_pattern(message, keywords):
-
-                count += 1
+            if self._contains_pattern(
+                message,
+                keywords
+            ):
+                count+=1
 
         return count
 
-    def _detect_escalation(self, messages: List[str]) -> Dict:
 
-        stages = []
+
+    def _detect_escalation(
+        self,
+        messages
+    ):
+
+        stages=[]
+
 
         for message in messages:
 
-            text = message.lower()
 
-            if self._contains_pattern(text, self.negative_keywords):
-                stages.append("negative_emotion")
+            if self._contains_pattern(
+                message,
+                self.negative_keywords
+            ):
+                stages.append(
+                    "negative_emotion"
+                )
 
-            if self._contains_pattern(text, self.isolation_keywords):
-                stages.append("social_isolation")
 
-            if self._contains_pattern(text, self.hopelessness_keywords):
-                stages.append("hopelessness")
 
-            if self._contains_pattern(text, self.crisis_keywords):
-                stages.append("crisis_signal")
+            if self._contains_pattern(
+                message,
+                self.isolation_keywords
+            ):
+                stages.append(
+                    "social_isolation"
+                )
 
-        escalation = False
 
-        if (
-            ("negative_emotion" in stages and "social_isolation" in stages)
-            or ("negative_emotion" in stages and "hopelessness" in stages)
-            or ("social_isolation" in stages and "hopelessness" in stages)
-            or ("crisis_signal" in stages)
-        ):
-            escalation = True
 
-        return {"sequence": stages, "escalation_detected": escalation}
+            if self._contains_pattern(
+                message,
+                self.hopelessness_keywords
+            ):
+                stages.append(
+                    "hopelessness"
+                )
 
-    def analyze(self, messages: List[str]) -> Dict:
 
-        total_messages = max(len(messages), 1)
 
-        isolation_count = self._count_patterns(messages, self.isolation_keywords)
+            if self._contains_pattern(
+                message,
+                self.passive_crisis_keywords
+            ):
+                stages.append(
+                    "passive_crisis"
+                )
 
-        hopelessness_count = self._count_patterns(messages, self.hopelessness_keywords)
 
-        negative_count = self._count_patterns(messages, self.negative_keywords)
 
-        crisis_count = self._count_patterns(messages, self.crisis_keywords)
+            if self._contains_pattern(
+                message,
+                self.active_crisis_keywords
+            ):
+                stages.append(
+                    "crisis_signal"
+                )
 
-        result = {
-            "isolation_score": round(min(isolation_count / total_messages, 1), 4),
-            "hopelessness_score": round(min(hopelessness_count / total_messages, 1), 4),
-            "negative_language_score": round(
-                min(negative_count / total_messages, 1), 4
-            ),
-            "crisis_language_score": round(min(crisis_count / total_messages, 1), 4),
+
+
+        escalation = (
+            len(set(stages)) >= 2
+        )
+
+
+        if "crisis_signal" in stages:
+            escalation=True
+
+
+
+        return {
+
+            "sequence": stages,
+
+            "escalation_detected": escalation
+
         }
 
-        escalation = self._detect_escalation(messages)
 
-        result["conversation_escalation"] = escalation
 
-        risk_indicators = []
 
-        if result["isolation_score"] > 0:
+    def analyze(
+        self,
+        messages:List[str]
+    ):
 
-            risk_indicators.append("Social isolation indicators detected")
 
-        if result["hopelessness_score"] > 0:
+        total=max(
+            len(messages),
+            1
+        )
 
-            risk_indicators.append("Hopelessness indicators detected")
 
-        if result["negative_language_score"] >= 0.5:
+        isolation = self._count_patterns(
+            messages,
+            self.isolation_keywords
+        )
 
-            risk_indicators.append("Frequent negative language detected")
 
-        if result["crisis_language_score"] > 0:
+        hopeless = self._count_patterns(
+            messages,
+            self.hopelessness_keywords
+        )
 
-            risk_indicators.append("Crisis-related language detected")
+
+        negative = self._count_patterns(
+            messages,
+            self.negative_keywords
+        )
+
+
+        passive = self._count_patterns(
+            messages,
+            self.passive_crisis_keywords
+        )
+
+
+        crisis = self._count_patterns(
+            messages,
+            self.active_crisis_keywords
+        )
+
+
+
+        escalation = self._detect_escalation(
+            messages
+        )
+
+
+
+        result={
+
+
+            "isolation_score":
+                round(
+                    min(
+                        isolation / total +
+                        isolation * 0.15,
+                        1
+                    ),
+                    4
+                ),
+
+
+
+            "hopelessness_score":
+                round(
+                    min(
+                        hopeless / total +
+                        hopeless * 0.2,
+                        1
+                    ),
+                    4
+                ),
+
+
+
+            "negative_language_score":
+                round(
+                    min(
+                        negative / total,
+                        1
+                    ),
+                    4
+                ),
+
+
+
+            "passive_crisis_score":
+                round(
+                    min(
+                        passive / total +
+                        passive * 0.25,
+                        1
+                    ),
+                    4
+                ),
+
+
+
+            "crisis_language_score":
+                round(
+                    min(
+                        crisis / total +
+                        crisis * 0.5,
+                        1
+                    ),
+                    4
+                ),
+
+
+
+            "conversation_escalation":
+                escalation
+
+        }
+
+
+
+        indicators=[]
+
+
+
+        if result["isolation_score"]>0:
+
+            indicators.append(
+                "Social isolation indicators detected"
+            )
+
+
+
+        if result["hopelessness_score"]>0:
+
+            indicators.append(
+                "Hopelessness indicators detected"
+            )
+
+
+
+        if result["passive_crisis_score"]>0:
+
+            indicators.append(
+                "Passive suicidal ideation indicators detected"
+            )
+
+
+
+        if result["crisis_language_score"]>0:
+
+            indicators.append(
+                "Crisis-related language detected"
+            )
+
+
 
         if escalation["escalation_detected"]:
 
-            risk_indicators.append("Conversation deterioration pattern detected")
+            indicators.append(
+                "Conversation deterioration pattern detected"
+            )
 
-        result["risk_indicators"] = risk_indicators
+
+
+        result["risk_indicators"]=indicators
+
+
 
         return result

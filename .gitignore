@@ -1,52 +1,80 @@
-# Virtual environment
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
 .venvv/
 venv/
-.env
-logs/
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-
-# Pytest
-.pytest_cache/
-.coverage
-
-# IDE
-.vscode/
-.idea/
-
-# Models / large files
-*.pkl
-*.joblib
-
-# Logs
-*.log
-
-# Database
-*.db
-*.sqlite3
-# Python
-__pycache__/
-*.pyc
-
-# Virtual environments
-.venv/
-venvv/
-
-# Logs
-logs/
-*.log
-
-# Test artifacts
-.pytest_cache/
-
-# OS files
-*.lnk
+ENV/
 
 # Environment
 .env
+.env.*
 
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# Testing
+# =========================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
 # Database
+# =========================
 *.db
+*.sqlite3
+
+# =========================
+# ML Models
+# =========================
+*.pkl
+*.joblib
+*.pt
+*.pth
+*.onnx
+
+# =========================
+# Build
+# =========================
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local scripts
+reset_db.py
+
+# Frontend build
+mhsa-frontend-dist/
+
+# Node
+node_modules/
+
+# Vite
+.vite/
+
+# Mac
+.AppleDouble
+.LSOverride
+
+reset_db.py
+mhsa-frontend-dist/
+node_modules/
