@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
-![Release](https://img.shields.io/github/v/release/AziziArya/Mental-Health-Safety-Analyzer)
+![Release](https://img.shields.io/github/v/release/AziziArya/ExpoChallenge_AryaAzizi)
 ![Tests](https://img.shields.io/badge/Tests-12%2F12-success)
 ![Coverage](https://img.shields.io/badge/Coverage-80%25-brightgreen)
 ![CI](https://github.com/AziziArya/ExpoChallenge_AryaAzizi/actions/workflows/tests.yml/badge.svg)
@@ -102,6 +102,8 @@ cd mhsa-frontend-source/mhsa-frontend
 npm install
 
 npm run dev
+
+npm run build
 ```
 
 Default frontend:
@@ -109,6 +111,26 @@ Default frontend:
 ```
 http://localhost:5173
 ``` 
+---
+
+# Demo
+
+The project includes:
+
+- FastAPI backend API
+- React dashboard interface
+- Explainable risk analysis reports
+
+Backend:
+http://127.0.0.1:8000
+
+
+Frontend:
+http://localhost:5173
+
+
+API Documentation:
+http://127.0.0.1:8000/docs
 
 
 # Running Tests
