@@ -220,7 +220,7 @@ export default function History() {
                   {filtered.map((c) => (
                     <tr
                       key={c.id}
-                      onClick={() => navigate(`/dashboard/${c.id}`)}
+                      onClick={() => navigate(c.kind === "chat" ? `/chat/${c.id}` : `/dashboard/${c.id}`)}
                       className="cursor-pointer border-b border-border-light last:border-0 transition-colors hover:bg-surface-light-muted"
                     >
                       <td className="px-5 py-4 font-medium text-foreground-light">{c.label}</td>
@@ -245,7 +245,7 @@ export default function History() {
 
             <div className="grid gap-3 laptop:hidden">
               {filtered.map((c) => (
-                <Card key={c.id} interactive onClick={() => navigate(`/dashboard/${c.id}`)}>
+                <Card key={c.id} interactive onClick={() => navigate(c.kind === "chat" ? `/chat/${c.id}` : `/dashboard/${c.id}`)}>
                   <div className="flex items-start justify-between gap-3">
                     <p className="font-medium text-foreground-light">{c.label}</p>
                     <ChevronRight size={16} className="mt-1 shrink-0 text-foreground-light-muted" />

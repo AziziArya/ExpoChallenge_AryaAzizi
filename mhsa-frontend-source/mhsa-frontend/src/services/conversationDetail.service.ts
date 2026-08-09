@@ -94,7 +94,14 @@ function buildMessages(data:any):Message[] {
           [
             "high",
             "critical"
-          ].includes(risk)
+          ].includes(risk),
+
+
+        piiDetected:
+          Boolean(
+            item.privacy
+            ?.pii_detected
+          )
 
       };
 
@@ -262,6 +269,86 @@ function buildSignals(data:any){
 
 
 
+function buildPrivacy(data:any){
+
+
+  const summary =
+    data?.privacy_summary ?? {};
+
+
+  return {
+
+    active:
+      Boolean(
+        summary.privacy_guard_active
+      ),
+
+
+    messagesWithPii:
+      Number(
+        summary.messages_with_pii ?? 0
+      ),
+
+
+    totalEntitiesRemoved:
+      Number(
+        summary.total_entities_removed ?? 0
+      ),
+
+
+    categories:
+      summary.categories ?? {}
+
+  };
+
+
+}
+
+
+
+
+
+/**
+ * Uploads an audio recording/file to the backend, which transcribes
+ * it (free engine chain, upgradeable to OpenAI's API via env var) and
+ * runs the transcript through the same conversation analysis pipeline
+ * as text/file uploads -- including persistence, so the result has a
+ * real conversation_id and can be reloaded from the dashboard.
+ */
+export async function analyzeConversationAudio(
+  audio: Blob,
+  filename: string
+): Promise<ConversationDetail> {
+
+  const formData = new FormData();
+  formData.append("file", audio, filename);
+
+  const response = await fetch(`${API_URL}/analyze/audio`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let detail = "Couldn't transcribe or analyze this audio.";
+    try {
+      const body = await response.json();
+      detail = body?.detail ?? detail;
+    } catch {
+      // response wasn't JSON -- keep the generic message
+    }
+    throw new Error(detail);
+  }
+
+  const data = await response.json();
+
+  const detail = mapApiToDetail(data);
+
+  addConversation(detail);
+
+  return detail;
+}
+
+
 function buildTrend(data:any){
 
 
@@ -405,7 +492,11 @@ function mapApiToDetail(
 
 
     conversationPatterns:
-      data?.conversation_patterns
+      data?.conversation_patterns,
+
+
+    privacy:
+      buildPrivacy(data)
 
   };
 
@@ -473,6 +564,49 @@ export async function analyzeConversationText(
 
   return detail;
 
+}
+
+
+
+
+
+/**
+ * Uploads a real conversation export file (Telegram JSON/TXT export or
+ * CSV) to the backend, which parses it into individual messages and
+ * runs the same analysis pipeline as pasted text. Parsing happens
+ * server-side so there's a single source of truth for "what counts as
+ * a message" across every client.
+ */
+export async function analyzeConversationFile(
+  file: File
+): Promise<ConversationDetail> {
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_URL}/analyze/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let detail = "Couldn't analyze this file.";
+    try {
+      const body = await response.json();
+      detail = body?.detail ?? detail;
+    } catch {
+      // response wasn't JSON -- keep the generic message
+    }
+    throw new Error(detail);
+  }
+
+  const data = await response.json();
+
+  const detail = mapApiToDetail(data);
+
+  addConversation(detail);
+
+  return detail;
 }
 
 

@@ -42,6 +42,9 @@ export interface ConversationSummary {
   updatedAt:string;
 
 
+  kind?: "analysis" | "chat";
+
+
 }
 
 

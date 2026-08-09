@@ -5,8 +5,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 # Database Configuration
 # =====================================
 
-DATABASE_URL = "sqlite:///./mental_health.db"
-
+DATABASE_URL = "sqlite:///./test_mental_health.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 

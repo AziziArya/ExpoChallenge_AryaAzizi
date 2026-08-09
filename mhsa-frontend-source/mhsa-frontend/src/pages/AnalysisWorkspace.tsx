@@ -8,6 +8,7 @@ import { ConversationViewer } from "../components/analysis/ConversationViewer";
 import { AnalysisTabs } from "../components/analysis/AnalysisTabs";
 import { ExplainabilityPanel } from "../components/analysis/ExplainabilityPanel";
 import { HumanReviewPanel } from "../components/analysis/HumanReviewPanel";
+import { PrivacyPanel } from "../components/analysis/PrivacyPanel";
 import { ClinicalSummaryCard } from "../components/analysis/ClinicalSummaryCard";
 import { getConversationDetail } from "../services/conversationDetail.service";
 import type { ConversationDetail, Trend } from "../types/conversationDetail";
@@ -132,6 +133,11 @@ export default function AnalysisWorkspace() {
           <div className="mt-6 grid gap-6 laptop:grid-cols-2">
             <ExplainabilityPanel data={data} />
             <HumanReviewPanel recommendation={data.recommendation} initialStatus={data.reviewStatus} />
+          </div>
+
+          {/* Privacy Guard — first-class panel, not buried in a tab */}
+          <div className="mt-6 grid gap-6 laptop:grid-cols-2">
+            <PrivacyPanel data={data} />
           </div>
 
           <div className="mt-6">

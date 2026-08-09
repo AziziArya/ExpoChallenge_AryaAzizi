@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Flag, AlertCircle } from "lucide-react";
+import { Search, Flag, AlertCircle, ShieldCheck } from "lucide-react";
 import type { Message } from "../../types/conversationDetail";
 import { cn } from "../../lib/cn";
 
@@ -109,6 +109,17 @@ export function ConversationViewer({ messages }: { messages: Message[] }) {
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-danger">
                     <Flag size={12} aria-hidden="true" />
                     Flagged
+                  </span>
+                )}
+
+                {/* Privacy Guard */}
+                {m.piiDetected && (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs font-medium text-foreground-light-muted"
+                    title="Personal information detected and anonymized before analysis"
+                  >
+                    <ShieldCheck size={12} aria-hidden="true" />
+                    Anonymized
                   </span>
                 )}
               </div>

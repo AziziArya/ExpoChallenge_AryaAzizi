@@ -31,6 +31,8 @@ export interface Message {
 
   highRisk: boolean;
 
+  piiDetected: boolean;
+
 }
 
 
@@ -174,6 +176,24 @@ export interface ConversationPatterns {
 
 
 /*
+  Privacy Guard Output
+*/
+
+export interface PrivacySummary {
+
+  active: boolean;
+
+  messagesWithPii: number;
+
+  totalEntitiesRemoved: number;
+
+  categories: Record<string, number>;
+
+}
+
+
+
+/*
   Main Conversation Detail Model
 */
 
@@ -253,5 +273,8 @@ export interface ConversationDetail {
 
 
   conversationPatterns?: ConversationPatterns;
+
+
+  privacy?: PrivacySummary;
 
 }

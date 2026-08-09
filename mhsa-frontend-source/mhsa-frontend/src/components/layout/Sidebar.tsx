@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   FilePlus2,
+  MessageCircle,
   History as HistoryIcon,
   FileText,
   BookOpen,
@@ -22,6 +23,7 @@ import { cn } from "../../lib/cn";
 const primaryItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/new-analysis", label: "New Analysis", icon: FilePlus2 },
+  { to: "/chat", label: "Chat", icon: MessageCircle },
   { to: "/history", label: "History", icon: HistoryIcon },
   { to: "/reports", label: "Reports", icon: FileText },
 ];

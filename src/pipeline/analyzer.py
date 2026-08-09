@@ -84,9 +84,9 @@ class MentalHealthAnalyzer:
         # Privacy
         # ==========================
 
-        anonymized_text = self.privacy.anonymize(text)
+        privacy_result = self.privacy.process(text)
 
-        privacy_result = {"original_text": text, "anonymized_text": anonymized_text}
+        anonymized_text = privacy_result["anonymized_text"]
 
         # ==========================
         # Emotion
