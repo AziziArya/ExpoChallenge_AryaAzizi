@@ -32,27 +32,39 @@ The privacy layer focuses on:
 
 ## Personal Information Detection
 
-The system is designed to detect sensitive information patterns such as:
+Detection combines two layers, run together on every message before
+any analysis model sees the text:
 
--   Names
--   Phone numbers
--   Email addresses
--   Addresses
--   Identification numbers
--   Other personally identifiable information
+-   **Regex** for deterministic patterns: emails, phone numbers, URLs,
+    IP addresses.
+-   **NER (spaCy, `en_core_web_sm`)** for contextual entities: person
+    names, locations, organizations. If the NER model isn't installed
+    in a given environment, the system logs a warning and falls back
+    to regex-only detection instead of failing the request.
 
-Detected information can be anonymized before entering the analysis
-pipeline.
+Both the original message and the anonymized version are kept (the
+anonymized version is what every downstream model -- emotion,
+distress, crisis, and the chatbot's LLM calls -- actually sees), along
+with a category breakdown of exactly what was found.
 
 Example:
 
 Before:
 
-"Hello, my name is John and my phone number is 123456789."
+"Hello, my name is John Smith and my email is john@example.com."
 
 After anonymization:
 
-"Hello, my name is \[PERSON\] and my phone number is \[PHONE\]."
+"Hello, my name is \[PERSON\] and my email is \[EMAIL\]."
+
+Detected entities returned alongside the anonymized text:
+
+```json
+{
+  "PERSON": ["John Smith"],
+  "EMAIL": ["john@example.com"]
+}
+```
 
 ------------------------------------------------------------------------
 
@@ -108,7 +120,37 @@ clinical diagnoses.
 
 ------------------------------------------------------------------------
 
-## Fairness Considerations
+## Privacy Across Every Input Channel
+
+Privacy protection isn't limited to typed messages -- it applies
+uniformly to every way text can enter the system:
+
+-   **Typed text and pasted conversations** -- anonymized before
+    analysis, as described above.
+-   **Uploaded files (Telegram exports, CSV)** -- each parsed message
+    goes through the same Privacy Guard before analysis.
+-   **Audio** -- the transcript produced by the Speech-to-Text module
+    is treated exactly like typed text; nothing about the audio
+    pipeline bypasses anonymization.
+-   **The AI chatbot** -- this is the one channel that sends text to
+    an external third-party API (the configured LLM provider). The
+    Privacy Guard runs *before* that call, so **the LLM provider only
+    ever receives the anonymized version of the person's message**,
+    never the raw text with names, emails, or other PII intact.
+
+------------------------------------------------------------------------
+
+## API Key and Secrets Handling
+
+-   `OPENAI_API_KEY` and other configuration values are read from
+    environment variables (a `.env` file), never hardcoded in source.
+-   If the chatbot's API key is missing, invalid, rate-limited, or the
+    provider is unreachable, the chatbot responds with an explicit
+    "connection failed" message and logs the failure -- it does not
+    crash, and no other feature of the system depends on this key.
+-   Every feature except the chatbot (Privacy Guard, file/Telegram
+    analysis, speech-to-text) works fully with no external API key
+    configured at all.
 
 The system should be evaluated to reduce possible bias caused by:
 
@@ -149,14 +191,21 @@ This system has important limitations:
 
 ## Future Safety Improvements
 
-Possible improvements include:
+Implemented in this iteration (previously listed as future work):
 
--   Advanced privacy-preserving machine learning
--   Better bias evaluation
--   Human feedback loops
+-   ~~Advanced privacy-preserving detection~~ -- done (NER + regex
+    Privacy Guard, applied uniformly across text, file, audio, and
+    chatbot input)
+
+Remaining possible improvements:
+
+-   Better bias evaluation across writing styles and languages
+-   Human feedback loops for reviewed cases
 -   Improved uncertainty estimation
 -   More robust crisis detection models
--   Secure deployment practices
+-   Secure, hosted deployment practices (this prototype currently runs
+    locally; a hosted deployment would need its own secrets management
+    beyond a local `.env` file)
 
 ------------------------------------------------------------------------
 

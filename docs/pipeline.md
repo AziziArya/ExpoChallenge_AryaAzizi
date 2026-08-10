@@ -10,6 +10,11 @@ The pipeline is designed to avoid relying on a single model decision.
 Instead, multiple analysis stages generate signals that are combined to
 create a safer and more explainable output.
 
+This same pipeline runs regardless of how a message enters the system --
+typed text, an uploaded conversation export (Telegram/CSV), a
+transcribed audio recording, or a live chatbot conversation all reach
+"Raw Conversation" below in the same internal format.
+
 ------------------------------------------------------------------------
 
 # Pipeline Flow

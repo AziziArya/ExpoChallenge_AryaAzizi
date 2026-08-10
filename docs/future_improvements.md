@@ -6,6 +6,8 @@ The current version of the Mental Health Safety Analyzer is a research prototype
 
 Future development will focus on improving model performance, explainability, privacy protection, clinical usability, and real-world deployment while ensuring that AI remains a decision-support tool rather than a replacement for mental health professionals.
 
+**Implemented since this document was first written** (see `docs/release_notes.md` v1.2.0 for detail): NER-based Privacy Guard, conversation file/Telegram import, speech-to-text (upload + microphone), a live AI chatbot with background safety monitoring, and the interactive dashboard described under "Interactive Dashboard" below. The sections below reflect what's still ahead, not what's already built.
+
 ------------------------------------------------------------------------
 
 # Clinical Integration Vision
@@ -129,9 +131,7 @@ Possible improvements:
 
 # Interactive Dashboard
 
-Future versions may include a modern interactive dashboard.
-
-Possible modules:
+The interactive dashboard is implemented (`mhsa-frontend-source/`), including:
 
 - Conversation Viewer
 - Emotion Timeline
@@ -139,7 +139,16 @@ Possible modules:
 - Crisis Indicators
 - Explainability Panel
 - Conversation Pattern Analysis
+- Privacy Panel (detected/anonymized PII per conversation)
+- A live Chat page with real-time risk/privacy status
 - AI-generated Reports
+
+Possible future dashboard improvements:
+
+- Live token-by-token streaming in the Chat page (currently the reply
+  arrives as one complete message)
+- Multi-user / role-based dashboard views
+- Exportable PDF safety reports
 
 ------------------------------------------------------------------------
 

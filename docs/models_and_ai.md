@@ -66,6 +66,11 @@ Possible detected emotions:
 
 ## Output Example
 
+The emotion model is a real transformer, not a placeholder: the
+GoEmotions-tuned `SamLowe/roberta-base-go_emotions` model (via Hugging
+Face `transformers`), run as a multi-label classifier so more than one
+emotion can be detected per message.
+
 Example output:
 
     Emotion Analysis:
@@ -142,22 +147,66 @@ or human review.
 
 # 4. Language Processing Models
 
-Natural Language Processing (NLP) techniques are used to understand
-conversation meaning.
+Models actually used in this pipeline, by task:
 
-Important tasks:
+| Task | Model / Library |
+|---|---|
+| Emotion classification | `SamLowe/roberta-base-go_emotions` (Transformers) |
+| Personal information detection (NER) | spaCy `en_core_web_sm` |
+| Speech-to-text (best case) | OpenAI Whisper API |
+| Speech-to-text (default, free) | Google Web Speech (via `SpeechRecognition`) |
+| Speech-to-text (offline fallback) | `faster-whisper` (local, CPU) |
+| Chatbot conversational replies | Configurable LLM via the OpenAI Responses API (any OpenAI-compatible provider) |
 
--   Text understanding
--   Token processing
--   Context extraction
--   Semantic analysis
+Distress and crisis detection currently use rule/lexicon-based scoring
+rather than a dedicated trained model -- see "Future Model
+Improvements" below for the planned upgrade path.
 
-Possible technologies:
+------------------------------------------------------------------------
 
--   Transformer-based models
--   BERT-style architectures
--   Hugging Face models
--   Deep learning NLP models
+# 4a. Privacy Guard NER Model
+
+Personal information detection (names, locations, organizations) uses
+spaCy's `en_core_web_sm` statistical NER model, combined with regex for
+deterministic patterns (emails, phone numbers, URLs, IPs). If the
+spaCy model isn't installed in a given environment, the system falls
+back to regex-only detection rather than failing -- this is a
+deliberate resilience choice, not a bug: partial PII protection is
+better than none, and the failure is logged clearly either way.
+
+------------------------------------------------------------------------
+
+# 4b. Speech-to-Text Models
+
+Three engines, tried in order, each independent of the others:
+
+1.  **OpenAI Whisper API** -- highest accuracy, only attempted if
+    `OPENAI_API_KEY` is configured.
+2.  **Google Web Speech** -- free, no API key or local model, the
+    default engine for this project.
+3.  **Local Whisper (`faster-whisper`, `tiny` model, CPU)** -- fully
+    offline fallback, loaded lazily on first use.
+
+Whichever engine actually produces the transcript is reported back in
+the API response (`engine: "openai_whisper_api" | "google_free" |
+"local_whisper"`), so it's always clear which one was used.
+
+------------------------------------------------------------------------
+
+# 4c. Chatbot Language Model
+
+The chatbot uses OpenAI's **Responses API** (`client.responses.create`,
+with `stream=True`), which is the current recommended interface for
+the GPT-5.6 model family. The model, temperature, timeout, and even
+the API base URL are all configuration (environment variables), not
+hardcoded -- the same code works against any OpenAI-compatible
+endpoint (e.g. Google Gemini's OpenAI-compatible endpoint) by changing
+`OPENAI_BASE_URL` and `OPENAI_CHAT_MODEL`, with no code changes.
+
+The chatbot does not perform its own risk classification. The current
+risk level from the safety pipeline is passed into its system prompt
+as context, which only ever adjusts *tone* -- the chatbot never
+announces that it detected a specific risk level or condition.
 
 ------------------------------------------------------------------------
 
@@ -240,11 +289,20 @@ If confidence is low:
 
 # 8. Future Model Improvements
 
-Possible future upgrades:
+Implemented in this iteration (previously listed as future work):
 
-## Advanced Transformer Models
+-   ~~Deep learning emotion model~~ -- done (`roberta-base-go_emotions`)
+-   ~~NER-based entity detection~~ -- done (spaCy Privacy Guard)
+-   ~~Speech-to-text integration~~ -- done (3-tier engine chain)
+-   ~~Conversational AI integration~~ -- done (chatbot via OpenAI
+    Responses API)
 
-Using larger language models for deeper context understanding.
+Remaining possible upgrades:
+
+## Trained Distress/Crisis Models
+
+Replacing the current rule/lexicon-based distress and crisis scoring
+with models fine-tuned on labeled mental-health-safety data.
 
 ## Fine-Tuned Safety Models
 
@@ -264,11 +322,14 @@ Improving performance using new evaluation data.
 
 Current system capabilities:
 
--   AI-based conversation analysis pipeline
--   Risk classification workflow
--   Emotion and distress analysis structure
--   Explainable safety outputs
--   Modular model architecture
+-   Real transformer-based emotion classification (not a placeholder)
+-   NER-based personal information detection with regex fallback
+-   Rule-based distress and crisis scoring, fused with emotion signals
+-   Three-tier speech-to-text engine chain (paid → free → offline)
+-   Configurable, provider-agnostic chatbot LLM integration
+-   Explainable safety outputs with confidence and reasons
+-   Modular architecture -- every model above can be swapped
+    independently without touching the rest of the pipeline
 
-Future versions can integrate more advanced trained models while keeping
-the same pipeline design.
+Future versions can integrate more advanced trained models (see
+below) while keeping the same pipeline design.

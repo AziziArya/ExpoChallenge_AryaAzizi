@@ -1,5 +1,91 @@
 # Release Notes
 
+## Version 1.2.0
+
+Release Date
+
+August 2026
+
+------------------------------------------------------------------------
+
+## Overview
+
+Version 1.2.0 extends the safety analysis pipeline to every way a
+conversation can enter the system -- not just typed text -- and adds
+a live conversational interface with the same background safety
+monitoring as every other input channel.
+
+------------------------------------------------------------------------
+
+# What's New in Version 1.2.0
+
+## Privacy Guard -- NER-Based Detection
+
+- Upgraded from regex-only to a combined regex + NER (spaCy
+  `en_core_web_sm`) detection layer
+- Now detects person names, locations, and organizations in addition
+  to emails, phone numbers, URLs, and IPs
+- Falls back to regex-only detection automatically if the NER model
+  isn't available in a given environment, instead of failing
+- Full Privacy Panel added to the dashboard UI, showing exactly what
+  was detected and anonymized per conversation
+
+## Conversation File / Telegram Export Import
+
+- New `POST /analyze/upload` endpoint
+- Parses Telegram Desktop JSON exports (single-chat and the "all
+  chats" wrapper), Telegram plain-text exports, and CSV files into the
+  same internal message format used everywhere else
+- Service events (joined chat, pinned message, etc.) filtered out
+  automatically
+- Duplicate message text across a conversation is analyzed once and
+  cached, instead of re-running the full pipeline for every repeat
+
+## Speech-to-Text
+
+- New `POST /analyze/audio` endpoint, plus in-browser microphone
+  recording in the dashboard
+- Three-tier engine chain: OpenAI Whisper API (if configured) → free
+  Google Web Speech (default) → local Whisper (offline fallback)
+- Transcript runs through the exact same safety pipeline as typed text
+
+## AI Chatbot with Background Safety Monitoring
+
+- New `/chat/start`, `/chat/{session_id}/message`, `/chat/{session_id}`,
+  and `/chat/sessions` endpoints, plus a full Chat page in the
+  dashboard
+- Every message is analyzed by the safety pipeline in the background
+  while the person has a normal conversation with the assistant
+- Uses OpenAI's Responses API, with model/provider/temperature/timeout
+  fully configurable via environment variables (works with any
+  OpenAI-compatible endpoint)
+- Conversation history is windowed before being sent to the model, so
+  cost and latency don't grow unbounded as a chat gets longer
+- Every turn is persisted immediately, so a session can be resumed
+  exactly where it was left
+- Failures (missing/invalid key, timeout, provider outage) return an
+  explicit "connection failed" message rather than a disguised
+  fallback reply
+- Per-session token usage tracking, and rate limiting (15
+  messages/minute, 60 messages/session cap) to protect against
+  runaway API costs
+
+## Bug Fixes
+
+- Fixed a database schema collision: two separate SQLite modules
+  (`src/database` and `backend/database`) were writing to the same
+  physical file with different schemas, causing intermittent `no such
+  column` errors depending on which ran first
+- Fixed the conversation analyzer re-analyzing every prior message on
+  every new call instead of just the new one, which doubled (or, for
+  growing chats, multiplied) pipeline latency unnecessarily
+- Fixed the chatbot silently falling back to a generic reply on every
+  real API call for GPT-5.x-family models, caused by using the legacy
+  `max_tokens` parameter where those models require
+  `max_completion_tokens`
+
+------------------------------------------------------------------------
+
 ## Version 1.1.0
 
 Release Date
@@ -133,15 +219,18 @@ The current version supports:
 
 Current testing status:
 
-- ✅ 12 / 12 Tests Passed
-- ✅ Approximately 80% Test Coverage
+- ✅ 65 / 65 Tests Passed (1 additional test auto-skips if the spaCy
+  NER model isn't installed in a given environment)
 
 Validated modules include:
 
-- API
+- API (including file upload, audio, and chat endpoints)
 - AI Pipeline
 - Risk Assessment
-- Privacy
+- Privacy Guard (regex + NER)
+- Conversation File / Telegram Import Parser
+- Speech-to-Text Transcriber
+- Chatbot (LLM client, rate limiting, session persistence)
 - Explainability
 - Database
 - Full Workflow
@@ -154,14 +243,16 @@ Main technologies:
 
 - Python
 - FastAPI
-- PyTorch
-- TensorFlow
-- Transformers
+- Transformers (emotion model)
+- spaCy + Presidio (Privacy Guard NER)
+- SpeechRecognition, faster-whisper (speech-to-text)
+- OpenAI SDK (Responses API -- chatbot + Whisper API)
 - Scikit-learn
 - Pandas
 - NumPy
 - SQLAlchemy
 - PyTest
+- React, TypeScript, Vite, Tailwind CSS (frontend)
 
 ------------------------------------------------------------------------
 
@@ -190,14 +281,14 @@ Future versions may assist psychologists by generating explainable conversation 
 
 Future development includes:
 
-- Fine-tuned AI models
-- Larger benchmark datasets
-- Clinical validation
-- Interactive dashboards
+- Live token-by-token streaming of chatbot replies to the UI
+- Fine-tuned distress/crisis models (currently rule/lexicon-based)
+- Alembic-based database migrations (dependency already included, not
+  yet wired in)
+- Larger benchmark datasets and clinical validation
 - Longitudinal conversation analysis
 - Explainable clinician reports
-- Early risk prediction
-- Enterprise deployment
+- Enterprise / hosted deployment
 
 ------------------------------------------------------------------------
 

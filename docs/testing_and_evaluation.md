@@ -69,13 +69,22 @@ different inputs.
 
 Current test execution status:
 
-    12/12 tests passed
+    65/65 tests passed
+    (1 additional test auto-skips if the spaCy NER model isn't
+    installed in a given environment)
 
 The current test suite validates:
 
--   API functionality
+-   API functionality, including file/Telegram upload, audio
+    transcription, and chatbot endpoints
 -   Full analysis pipeline execution
 -   Safety decision generation
+-   Privacy Guard (regex + NER detection and anonymization)
+-   Conversation file parsing (Telegram JSON/TXT, CSV)
+-   Speech-to-text engine selection and fallback behavior
+-   Chatbot LLM client, rate limiting, and session persistence
+    (using a mocked LLM client -- no API key required to run the
+    suite)
 -   Core system behavior
 
 ------------------------------------------------------------------------
