@@ -1,0 +1,1132 @@
+diff --git a/docs/api_documentation.md b/docs/api_documentation.md
+index 642f6d0..17d1b68 100644
+--- a/docs/api_documentation.md
++++ b/docs/api_documentation.md
+@@ -2,223 +2,327 @@
+ 
+ ## Overview
+ 
+-The Mental Health Safety Analyzer provides an API layer that allows
+-applications to send conversation data and receive AI-based safety
+-analysis results.
++The Mental Health Safety Analyzer exposes its analysis pipeline through
++a FastAPI REST API. This document reflects the endpoints as actually
++implemented in `backend/app.py`.
+ 
+-The API is designed to connect the analysis pipeline with external
+-interfaces such as web applications, dashboards, and testing
+-environments.
++Interactive, always-current documentation is also available at
++`/docs` (Swagger UI) and `/redoc` once the server is running.
+ 
+ ------------------------------------------------------------------------
+ 
+-# API Architecture
+-
+-The API follows a simple request-response structure:
+-
+-    Client Application
+-
+-            ↓
+-
+-    API Endpoint
+-
+-            ↓
+-
+-    Safety Analysis Pipeline
++# Installation and Running
+ 
+-            ↓
++```bash
++pip install -r requirements.txt
++python -m spacy download en_core_web_sm
++uvicorn backend.app:app --reload
++```
+ 
+-    Analysis Result
++The API starts at `http://127.0.0.1:8000`.
+ 
+-            ↓
++------------------------------------------------------------------------
+ 
+-    JSON Response
++# Endpoint Summary
++
++| Method | Endpoint | Purpose |
++|---|---|---|
++| GET | `/` | Service status |
++| GET | `/health` | Health check |
++| POST | `/analyze` | Analyze a single message |
++| POST | `/analyze-conversation` | Analyze a full conversation (list of messages) |
++| POST | `/analyze/upload` | Upload a Telegram/CSV/TXT export for analysis |
++| POST | `/analyze/audio` | Upload an audio file for transcription + analysis |
++| POST | `/chat/start` | Start a new chatbot session |
++| POST | `/chat/{session_id}/message` | Send a chat message |
++| GET | `/chat/{session_id}` | Resume a chat session |
++| GET | `/chat/sessions` | List all chat sessions |
++| GET | `/conversations` | List all analyzed conversations |
++| GET | `/conversations/{id}` | Get a specific conversation's full analysis |
++| GET | `/database/status` | Database connectivity check |
+ 
+ ------------------------------------------------------------------------
+ 
+-# Installation and Running
+-
+-Install project dependencies:
++# Single Message Analysis
+ 
+-    pip install -r requirements.txt
++## `POST /analyze`
+ 
+-Run the API service:
++### Request
+ 
+-    uvicorn src.api.main:app --reload
++```json
++{
++  "text": "I feel very hopeless recently."
++}
++```
+ 
+-The API will start locally and become available through the configured
+-host and port.
++### Response (abbreviated)
+ 
+-------------------------------------------------------------------------
++```json
++{
++  "privacy": {
++    "original_text": "I feel very hopeless recently.",
++    "anonymized_text": "I feel very hopeless recently.",
++    "detected_entities": {},
++    "entity_count": 0,
++    "pii_detected": false
++  },
++  "risk_assessment": {
++    "level": "Moderate Risk",
++    "score": 0.42
++  },
++  "report": { "...": "explainability + safety response detail" }
++}
++```
+ 
+-# Main Endpoint
++If personal information is present in the message (a name, email,
++phone number, location, or organization), it appears under
++`detected_entities`, grouped by category, and is replaced with a
++placeholder (e.g. `[PERSON]`) in `anonymized_text` -- the analysis
++models only ever see the anonymized version.
+ 
+-## Health Check
++------------------------------------------------------------------------
+ 
+-### Endpoint
++# Conversation Analysis
+ 
+-    GET /health
++## `POST /analyze-conversation`
+ 
+-### Purpose
++### Request
+ 
+-Checks whether the API service is running correctly.
++```json
++{
++  "messages": [
++    "I feel exhausted.",
++    "I don't enjoy anything anymore.",
++    "Sometimes I think disappearing would be easier."
++  ]
++}
++```
+ 
+-### Example Response
++### Response (abbreviated)
+ 
+-``` json
++```json
+ {
+-  "status": "healthy"
++  "conversation_id": "b1e2...",
++  "message_count": 3,
++  "timeline": [
++    { "message_number": 1, "risk_level": "Mild Concern", "risk_score": 0.18, "privacy": { "...": "..." } }
++  ],
++  "overall_risk": { "level": "High Risk", "score": 0.71 },
++  "risk_trend": "Increasing",
++  "privacy_summary": {
++    "privacy_guard_active": true,
++    "messages_with_pii": 0,
++    "total_entities_removed": 0,
++    "categories": {}
++  },
++  "decision": { "final_risk_level": "High Risk", "final_risk_score": 0.71, "requires_human_review": true },
++  "explainability": { "...": "reasons behind the decision" },
++  "safety_response": { "...": "recommended action / message" }
+ }
+ ```
+ 
+-------------------------------------------------------------------------
+-
+-# Conversation Analysis Endpoint
++This response is persisted (with a real `conversation_id`) and can be
++retrieved later via `GET /conversations/{id}`.
+ 
+-## Analyze Conversation
++------------------------------------------------------------------------
+ 
+-### Endpoint
++# File / Telegram Export Upload
+ 
+-    POST /analyze
++## `POST /analyze/upload`
+ 
+-### Purpose
++`multipart/form-data`, field name `file`. Accepts:
+ 
+-Receives a conversation and returns a safety analysis report.
++- Telegram Desktop JSON export (`.json`) -- single-chat `{"messages": [...]}` or the "all chats" `{"chats": {"list": [...]}}` wrapper
++- Telegram Desktop plain-text export (`.txt`)
++- CSV with a `message`/`text` column (`.csv`)
+ 
+-------------------------------------------------------------------------
++Max size: 10 MB.
+ 
+-## Request Example
++The file is parsed into individual messages server-side, then run
++through the exact same pipeline as `/analyze-conversation` -- the
++response shape is identical, with an added `source_file` field:
+ 
+-``` json
++```json
+ {
+-  "conversation": [
+-    {
+-      "role": "user",
+-      "message": "I feel very hopeless recently."
+-    }
+-  ]
++  "source_file": { "filename": "telegram_export.json", "parsed_message_count": 42 },
++  "conversation_id": "...",
++  "...": "same shape as /analyze-conversation"
+ }
+ ```
+ 
++Service events in Telegram exports (joined chat, pinned message, etc.)
++are filtered out automatically.
++
+ ------------------------------------------------------------------------
+ 
+-## Response Example
++# Audio Analysis
++
++## `POST /analyze/audio`
++
++`multipart/form-data`, field name `file`. Accepts `.wav`, `.mp3`,
++`.m4a`, `.ogg`, `.webm`, `.flac`, `.aiff`/`.aif`. Max size: 15 MB.
++
++The audio is transcribed (engine chain: OpenAI Whisper API if
++configured, free Google Web Speech, then local Whisper), and the
++transcript is run through the same pipeline as
++`/analyze-conversation` (as a single-message conversation), with an
++added `transcription` field:
+ 
+-``` json
++```json
+ {
+-  "risk_level": "moderate",
+-  "confidence": 0.82,
+-  "detected_signals": [
+-    "negative emotion",
+-    "hopelessness indicators"
+-  ]
++  "transcription": {
++    "transcript": "I've been feeling really hopeless lately.",
++    "engine": "google_free",
++    "source_filename": "voice_note.wav"
++  },
++  "conversation_id": "...",
++  "...": "same shape as /analyze-conversation"
+ }
+ ```
+ 
++`engine` is one of `openai_whisper_api`, `google_free`, or
++`local_whisper`, depending on which one succeeded.
++
+ ------------------------------------------------------------------------
+ 
+-# Response Fields
++# Chatbot
++
++## `POST /chat/start`
+ 
+-## Risk Level
++No request body.
+ 
+-Possible values:
++```json
++{ "session_id": "b1e2...", "chatbot_mode": "live" }
++```
+ 
+--   Safe
+--   Mild Concern
+--   Moderate Risk
+--   High Risk
+--   Critical Emergency
++`chatbot_mode` is `"live"` if `OPENAI_API_KEY` is configured, `"error"`
++otherwise (see below).
+ 
+-------------------------------------------------------------------------
++## `POST /chat/{session_id}/message`
+ 
+-## Confidence Score
++### Request
+ 
+-Represents the model confidence in the prediction.
++```json
++{ "text": "hey, how are you today?" }
++```
+ 
+-Example:
++### Response (abbreviated)
+ 
+-    confidence: 0.85
++```json
++{
++  "session_id": "b1e2...",
++  "reply": "I'm doing well, thanks for asking! How about you?",
++  "chatbot_mode": "live",
++  "message_count": 2,
++  "risk_level": "Safe",
++  "risk_score": 0.02,
++  "risk_trend": "Stable",
++  "requires_review": false,
++  "privacy_summary": { "...": "..." },
++  "tokens_used_this_turn": 63,
++  "tokens_used_session_total": 63
++}
++```
+ 
+-means the system has 85% confidence in the generated result.
++Every message is analyzed by the full safety pipeline in the
++background -- `risk_level`/`risk_trend`/`requires_review` reflect the
++*whole conversation so far*, not just the latest message. Both the
++user's message and the assistant's reply are persisted immediately, so
++the session can be resumed later even if it's never explicitly ended.
+ 
+-------------------------------------------------------------------------
++**If the chatbot can't reach the model** (no API key, invalid key,
++timeout, provider outage, or an empty response), `reply` is the
++literal string:
+ 
+-## Detected Signals
++```
++ارتباط برقرار نشد. لطفاً دوباره تلاش کنید.
++```
+ 
+-Contains important factors detected during analysis.
++and `chatbot_mode` is `"error"` -- the failure is surfaced honestly
++rather than disguised as a normal reply. The rest of the app (privacy
++analysis, file/audio analysis, dashboard) is unaffected by this.
+ 
+-Examples:
++**Rate limits:** max 15 messages per 60 seconds per session, and a
++hard cap of 60 messages per session. Exceeding either returns
++`429 Too Many Requests` with a `detail` message.
+ 
+--   Emotional distress
+--   Negative sentiment
+--   Crisis-related patterns
+--   Conversation deterioration
++## `GET /chat/{session_id}`
+ 
+-------------------------------------------------------------------------
++Resumes a session: full message history plus the safety analysis
++snapshot as of the last message.
+ 
+-# Error Handling
++## `GET /chat/sessions`
+ 
+-The API returns structured errors.
++Lists all chat sessions (id, message count, risk level, timestamps) --
++used by the History page.
+ 
+-Example:
++------------------------------------------------------------------------
+ 
+-``` json
+-{
+-  "error": "Invalid input format"
+-}
+-```
++# Conversation History
+ 
+-Common errors:
++## `GET /conversations`
+ 
+--   Missing conversation data
+--   Invalid request format
+--   Internal processing errors
++Lists all persisted conversations (from `/analyze-conversation`,
++`/analyze/upload`, and `/analyze/audio`).
+ 
+-------------------------------------------------------------------------
++## `GET /conversations/{id}`
+ 
+-# API Documentation Interface
++Returns a specific conversation's full stored analysis (the same
++shape as the original `/analyze-conversation` response).
+ 
+-The project can expose automatic API documentation using FastAPI
+-documentation tools.
++------------------------------------------------------------------------
+ 
+-Available interfaces:
++# Error Handling
+ 
+-    /docs
++Errors follow FastAPI's standard shape:
+ 
+-and
++```json
++{ "detail": "description of what went wrong" }
++```
+ 
+-    /redoc
++| Status | Meaning |
++|---|---|
++| 404 | Conversation or chat session not found |
++| 413 | Uploaded file/audio exceeds the size limit |
++| 422 | File couldn't be parsed (unsupported format, empty result) |
++| 429 | Chat rate limit exceeded |
++| 500 | Unexpected server-side failure |
+ 
+-These provide interactive API testing and endpoint descriptions.
++The chatbot specifically never raises a 500 for a failed model call --
++that case returns a normal `200` response with the connection-error
++message described above, so a flaky/misconfigured API key degrades
++gracefully instead of breaking the chat UI.
+ 
+ ------------------------------------------------------------------------
+ 
+ # Security Considerations
+ 
+-Recommended security practices:
+-
+--   Validate all incoming data
+--   Avoid storing raw private conversations
+--   Apply privacy filtering before analysis
+--   Protect API access in production deployment
++- Personal information is anonymized by the Privacy Guard *before*
++  reaching any analysis model, including the chatbot's LLM calls.
++- `OPENAI_API_KEY` and other secrets are read from environment
++  variables (`.env`) -- never hardcoded in source.
++- Chat message rate limiting protects against runaway API costs from
++  a stuck client or misbehaving script.
++- CORS is restricted to the local frontend origin in `backend/app.py`.
+ 
+ ------------------------------------------------------------------------
+ 
+ # Future API Improvements
+ 
+-Possible future improvements:
+-
+--   Authentication system
+--   User management
+--   Real-time analysis endpoint
+--   Streaming conversation analysis
+--   Dashboard integration
+--   Advanced reporting endpoints
++- Live token-by-token streaming for `/chat/{session_id}/message`
++  (the OpenAI call already streams; the endpoint currently consumes
++  it fully server-side and returns one complete response)
++- Authentication / user accounts
++- Pagination for `/conversations` and `/chat/sessions`
++- Alembic-based database migrations (dependency already included, not
++  yet wired in)
+ 
+ ------------------------------------------------------------------------
+ 
+ # Conclusion
+ 
+-The API layer provides a simple interface for connecting the Mental
+-Health Safety Analyzer engine with external applications while
+-maintaining privacy, explainability, and safety principles.
++The API layer connects every input channel this project supports --
++typed text, uploaded files, audio, and a live chatbot -- to the same
++underlying safety analysis pipeline, while keeping privacy,
++explainability, and graceful failure handling consistent across all
++of them.
+diff --git a/docs/architecture.md b/docs/architecture.md
+index d78891c..45a3a56 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -68,16 +68,21 @@ The complete processing flow is:
+ 
+ ## 1. Conversation Input Layer
+ 
+-This layer receives the conversation data that needs to be analyzed.
++This layer receives the conversation data that needs to be analyzed,
++regardless of how it arrives.
+ 
+-Input examples:
++Supported input channels:
+ 
+--   User messages
+--   Anonymous conversation logs
+--   Chat-based interactions
++-   Typed text (single message or full conversation)
++-   Uploaded conversation exports (Telegram JSON/TXT export, CSV)
++-   Audio (uploaded file or live microphone recording, transcribed via
++    the Speech-to-Text module before entering the pipeline)
++-   Live chatbot conversation (each message enters the same pipeline
++    in the background as the person chats)
+ 
+-The input layer is responsible for preparing raw conversation data
+-before analysis.
++Regardless of source, everything is normalized into the same internal
++message format before reaching the Privacy Guard layer -- the rest of
++the pipeline has no knowledge of where the text came from.
+ 
+ ------------------------------------------------------------------------
+ 
+@@ -86,18 +91,23 @@ before analysis.
+ Privacy protection is one of the main requirements of the project.
+ 
+ Before any AI analysis happens, sensitive information is detected and
+-removed.
++anonymized -- replaced with a category placeholder (e.g. `[PERSON]`,
++`[EMAIL]`) rather than simply removed, so the surrounding sentence
++structure is preserved for analysis.
+ 
+-The privacy layer can identify:
++Detection uses two combined layers:
+ 
+--   Names
+--   Phone numbers
+--   Email addresses
+--   Addresses
+--   Identification numbers
+--   Other personally identifiable information
++-   **Regex** for deterministic patterns: emails, phone numbers, URLs,
++    IP addresses.
++-   **NER (spaCy)** for contextual entities: person names, locations,
++    organizations. If the NER model isn't available in a given
++    environment, the system logs a warning and falls back to
++    regex-only detection rather than failing.
+ 
+-The goal is to allow analysis while reducing privacy risks.
++Both the original text and the anonymized text are preserved (the
++anonymized version is what reaches every downstream model; the
++original is retained for display and audit purposes), along with a
++breakdown of exactly what was detected, by category.
+ 
+ ------------------------------------------------------------------------
+ 
+@@ -235,7 +245,69 @@ This improves transparency and trust.
+ 
+ ------------------------------------------------------------------------
+ 
+-# API Architecture
++## 11. Conversation File Import Module
++
++Parses uploaded conversation exports into the same internal message
++list every other input channel uses.
++
++Supported formats:
++
++-   Telegram Desktop JSON export (single chat, and the "all chats"
++    multi-chat export wrapper)
++-   Telegram Desktop plain-text export
++-   Generic CSV with a `message`/`text` column
++
++Service (non-service, e.g. joined chat / pinned message) events in
++Telegram exports are filtered out before analysis, since they aren't
++conversation content.
++
++------------------------------------------------------------------------
++
++## 12. Speech-to-Text Module
++
++Converts an uploaded or recorded audio file into a transcript before
++it enters the same pipeline used for typed text.
++
++Engine chain, tried in order:
++
++1.  **OpenAI Whisper API** -- only attempted if an API key is
++    configured; highest accuracy.
++2.  **Google Web Speech (free, keyless)** -- default engine, no API
++    key or local model required.
++3.  **Local Whisper (faster-whisper, CPU)** -- offline fallback,
++    loaded lazily.
++
++Each engine is independent; if one is unavailable in a given
++environment, the chain falls through to the next rather than failing
++the whole request.
++
++------------------------------------------------------------------------
++
++## 13. AI Chatbot with Background Safety Monitoring
++
++A conversational assistant (OpenAI Responses API) that the person
++chats with normally, while every message is transparently analyzed by
++the *same* safety pipeline described above -- in parallel, not as a
++separate feature bolted on afterward.
++
++-   The chatbot's replies are generated independently of the safety
++    decision; the current risk level only adjusts *tone* (e.g. more
++    supportive, gently encouraging outside support at high risk) --
++    the chatbot never announces that it detected anything or performs
++    its own risk classification.
++-   Each turn is persisted immediately (not just at the end of the
++    conversation), so a session can always be resumed exactly where
++    it was left.
++-   If no API key is configured, or a call fails for any reason
++    (invalid key, timeout, provider outage), the chatbot returns an
++    explicit "connection failed" message rather than a disguised
++    fallback reply -- failures are visible, not hidden.
++-   Conversation history sent to the model is windowed (most recent
++    ~20 messages) so cost and latency don't grow unbounded as a chat
++    gets longer; the full history is still used for the safety
++    analysis.
++
++------------------------------------------------------------------------
+ 
+ The backend service is built to expose analysis functionality through
+ APIs.
+@@ -295,11 +367,19 @@ instead of fully automated decisions.
+ 
+ # Future Architecture Expansion
+ 
+-Possible future improvements:
++Implemented in this iteration (previously listed as future work):
++
++-   ~~Multi-model AI fusion~~ -- done (Context Fusion Engine)
++-   ~~Human review workflow~~ -- done (Decision Engine flags cases for review)
++
++Remaining possible future improvements:
+ 
+--   Multi-model AI fusion
+--   Advanced transformer-based models
+--   Real-time monitoring dashboard
++-   Live token-by-token streaming of chatbot replies to the UI
++    (currently the Responses API stream is consumed server-side and
++    returned as one complete reply)
+ -   Fairness evaluation module
+--   Human review workflow
+--   Better risk prediction models
++-   Multilingual support
++-   Real database migrations (Alembic is already a dependency but not
++    yet wired in -- schema changes currently require deleting the
++    SQLite file in development)
++-   Federated / privacy-preserving learning for future model training
+diff --git a/docs/future_improvements.md b/docs/future_improvements.md
+index 0821c38..3c58127 100644
+--- a/docs/future_improvements.md
++++ b/docs/future_improvements.md
+@@ -6,6 +6,8 @@ The current version of the Mental Health Safety Analyzer is a research prototype
+ 
+ Future development will focus on improving model performance, explainability, privacy protection, clinical usability, and real-world deployment while ensuring that AI remains a decision-support tool rather than a replacement for mental health professionals.
+ 
++**Implemented since this document was first written** (see `docs/release_notes.md` v1.2.0 for detail): NER-based Privacy Guard, conversation file/Telegram import, speech-to-text (upload + microphone), a live AI chatbot with background safety monitoring, and the interactive dashboard described under "Interactive Dashboard" below. The sections below reflect what's still ahead, not what's already built.
++
+ ------------------------------------------------------------------------
+ 
+ # Clinical Integration Vision
+@@ -129,9 +131,7 @@ Possible improvements:
+ 
+ # Interactive Dashboard
+ 
+-Future versions may include a modern interactive dashboard.
+-
+-Possible modules:
++The interactive dashboard is implemented (`mhsa-frontend-source/`), including:
+ 
+ - Conversation Viewer
+ - Emotion Timeline
+@@ -139,8 +139,17 @@ Possible modules:
+ - Crisis Indicators
+ - Explainability Panel
+ - Conversation Pattern Analysis
++- Privacy Panel (detected/anonymized PII per conversation)
++- A live Chat page with real-time risk/privacy status
+ - AI-generated Reports
+ 
++Possible future dashboard improvements:
++
++- Live token-by-token streaming in the Chat page (currently the reply
++  arrives as one complete message)
++- Multi-user / role-based dashboard views
++- Exportable PDF safety reports
++
+ ------------------------------------------------------------------------
+ 
+ # Privacy & Security
+diff --git a/docs/models_and_ai.md b/docs/models_and_ai.md
+index 533412c..c1da0a8 100644
+--- a/docs/models_and_ai.md
++++ b/docs/models_and_ai.md
+@@ -66,6 +66,11 @@ Possible detected emotions:
+ 
+ ## Output Example
+ 
++The emotion model is a real transformer, not a placeholder: the
++GoEmotions-tuned `SamLowe/roberta-base-go_emotions` model (via Hugging
++Face `transformers`), run as a multi-label classifier so more than one
++emotion can be detected per message.
++
+ Example output:
+ 
+     Emotion Analysis:
+@@ -142,22 +147,66 @@ or human review.
+ 
+ # 4. Language Processing Models
+ 
+-Natural Language Processing (NLP) techniques are used to understand
+-conversation meaning.
++Models actually used in this pipeline, by task:
++
++| Task | Model / Library |
++|---|---|
++| Emotion classification | `SamLowe/roberta-base-go_emotions` (Transformers) |
++| Personal information detection (NER) | spaCy `en_core_web_sm` |
++| Speech-to-text (best case) | OpenAI Whisper API |
++| Speech-to-text (default, free) | Google Web Speech (via `SpeechRecognition`) |
++| Speech-to-text (offline fallback) | `faster-whisper` (local, CPU) |
++| Chatbot conversational replies | Configurable LLM via the OpenAI Responses API (any OpenAI-compatible provider) |
++
++Distress and crisis detection currently use rule/lexicon-based scoring
++rather than a dedicated trained model -- see "Future Model
++Improvements" below for the planned upgrade path.
++
++------------------------------------------------------------------------
++
++# 4a. Privacy Guard NER Model
++
++Personal information detection (names, locations, organizations) uses
++spaCy's `en_core_web_sm` statistical NER model, combined with regex for
++deterministic patterns (emails, phone numbers, URLs, IPs). If the
++spaCy model isn't installed in a given environment, the system falls
++back to regex-only detection rather than failing -- this is a
++deliberate resilience choice, not a bug: partial PII protection is
++better than none, and the failure is logged clearly either way.
++
++------------------------------------------------------------------------
+ 
+-Important tasks:
++# 4b. Speech-to-Text Models
+ 
+--   Text understanding
+--   Token processing
+--   Context extraction
+--   Semantic analysis
++Three engines, tried in order, each independent of the others:
+ 
+-Possible technologies:
++1.  **OpenAI Whisper API** -- highest accuracy, only attempted if
++    `OPENAI_API_KEY` is configured.
++2.  **Google Web Speech** -- free, no API key or local model, the
++    default engine for this project.
++3.  **Local Whisper (`faster-whisper`, `tiny` model, CPU)** -- fully
++    offline fallback, loaded lazily on first use.
+ 
+--   Transformer-based models
+--   BERT-style architectures
+--   Hugging Face models
+--   Deep learning NLP models
++Whichever engine actually produces the transcript is reported back in
++the API response (`engine: "openai_whisper_api" | "google_free" |
++"local_whisper"`), so it's always clear which one was used.
++
++------------------------------------------------------------------------
++
++# 4c. Chatbot Language Model
++
++The chatbot uses OpenAI's **Responses API** (`client.responses.create`,
++with `stream=True`), which is the current recommended interface for
++the GPT-5.6 model family. The model, temperature, timeout, and even
++the API base URL are all configuration (environment variables), not
++hardcoded -- the same code works against any OpenAI-compatible
++endpoint (e.g. Google Gemini's OpenAI-compatible endpoint) by changing
++`OPENAI_BASE_URL` and `OPENAI_CHAT_MODEL`, with no code changes.
++
++The chatbot does not perform its own risk classification. The current
++risk level from the safety pipeline is passed into its system prompt
++as context, which only ever adjusts *tone* -- the chatbot never
++announces that it detected a specific risk level or condition.
+ 
+ ------------------------------------------------------------------------
+ 
+@@ -240,11 +289,20 @@ If confidence is low:
+ 
+ # 8. Future Model Improvements
+ 
+-Possible future upgrades:
++Implemented in this iteration (previously listed as future work):
++
++-   ~~Deep learning emotion model~~ -- done (`roberta-base-go_emotions`)
++-   ~~NER-based entity detection~~ -- done (spaCy Privacy Guard)
++-   ~~Speech-to-text integration~~ -- done (3-tier engine chain)
++-   ~~Conversational AI integration~~ -- done (chatbot via OpenAI
++    Responses API)
+ 
+-## Advanced Transformer Models
++Remaining possible upgrades:
+ 
+-Using larger language models for deeper context understanding.
++## Trained Distress/Crisis Models
++
++Replacing the current rule/lexicon-based distress and crisis scoring
++with models fine-tuned on labeled mental-health-safety data.
+ 
+ ## Fine-Tuned Safety Models
+ 
+@@ -264,11 +322,14 @@ Improving performance using new evaluation data.
+ 
+ Current system capabilities:
+ 
+--   AI-based conversation analysis pipeline
+--   Risk classification workflow
+--   Emotion and distress analysis structure
+--   Explainable safety outputs
+--   Modular model architecture
+-
+-Future versions can integrate more advanced trained models while keeping
+-the same pipeline design.
++-   Real transformer-based emotion classification (not a placeholder)
++-   NER-based personal information detection with regex fallback
++-   Rule-based distress and crisis scoring, fused with emotion signals
++-   Three-tier speech-to-text engine chain (paid → free → offline)
++-   Configurable, provider-agnostic chatbot LLM integration
++-   Explainable safety outputs with confidence and reasons
++-   Modular architecture -- every model above can be swapped
++    independently without touching the rest of the pipeline
++
++Future versions can integrate more advanced trained models (see
++below) while keeping the same pipeline design.
+diff --git a/docs/pipeline.md b/docs/pipeline.md
+index bfc2ea7..7f2f6dc 100644
+--- a/docs/pipeline.md
++++ b/docs/pipeline.md
+@@ -10,6 +10,11 @@ The pipeline is designed to avoid relying on a single model decision.
+ Instead, multiple analysis stages generate signals that are combined to
+ create a safer and more explainable output.
+ 
++This same pipeline runs regardless of how a message enters the system --
++typed text, an uploaded conversation export (Telegram/CSV), a
++transcribed audio recording, or a live chatbot conversation all reach
++"Raw Conversation" below in the same internal format.
++
+ ------------------------------------------------------------------------
+ 
+ # Pipeline Flow
+diff --git a/docs/privacy_and_safety.md b/docs/privacy_and_safety.md
+index 92cc84d..368da5d 100644
+--- a/docs/privacy_and_safety.md
++++ b/docs/privacy_and_safety.md
+@@ -32,27 +32,39 @@ The privacy layer focuses on:
+ 
+ ## Personal Information Detection
+ 
+-The system is designed to detect sensitive information patterns such as:
++Detection combines two layers, run together on every message before
++any analysis model sees the text:
+ 
+--   Names
+--   Phone numbers
+--   Email addresses
+--   Addresses
+--   Identification numbers
+--   Other personally identifiable information
++-   **Regex** for deterministic patterns: emails, phone numbers, URLs,
++    IP addresses.
++-   **NER (spaCy, `en_core_web_sm`)** for contextual entities: person
++    names, locations, organizations. If the NER model isn't installed
++    in a given environment, the system logs a warning and falls back
++    to regex-only detection instead of failing the request.
+ 
+-Detected information can be anonymized before entering the analysis
+-pipeline.
++Both the original message and the anonymized version are kept (the
++anonymized version is what every downstream model -- emotion,
++distress, crisis, and the chatbot's LLM calls -- actually sees), along
++with a category breakdown of exactly what was found.
+ 
+ Example:
+ 
+ Before:
+ 
+-"Hello, my name is John and my phone number is 123456789."
++"Hello, my name is John Smith and my email is john@example.com."
+ 
+ After anonymization:
+ 
+-"Hello, my name is \[PERSON\] and my phone number is \[PHONE\]."
++"Hello, my name is \[PERSON\] and my email is \[EMAIL\]."
++
++Detected entities returned alongside the anonymized text:
++
++```json
++{
++  "PERSON": ["John Smith"],
++  "EMAIL": ["john@example.com"]
++}
++```
+ 
+ ------------------------------------------------------------------------
+ 
+@@ -108,7 +120,37 @@ clinical diagnoses.
+ 
+ ------------------------------------------------------------------------
+ 
+-## Fairness Considerations
++## Privacy Across Every Input Channel
++
++Privacy protection isn't limited to typed messages -- it applies
++uniformly to every way text can enter the system:
++
++-   **Typed text and pasted conversations** -- anonymized before
++    analysis, as described above.
++-   **Uploaded files (Telegram exports, CSV)** -- each parsed message
++    goes through the same Privacy Guard before analysis.
++-   **Audio** -- the transcript produced by the Speech-to-Text module
++    is treated exactly like typed text; nothing about the audio
++    pipeline bypasses anonymization.
++-   **The AI chatbot** -- this is the one channel that sends text to
++    an external third-party API (the configured LLM provider). The
++    Privacy Guard runs *before* that call, so **the LLM provider only
++    ever receives the anonymized version of the person's message**,
++    never the raw text with names, emails, or other PII intact.
++
++------------------------------------------------------------------------
++
++## API Key and Secrets Handling
++
++-   `OPENAI_API_KEY` and other configuration values are read from
++    environment variables (a `.env` file), never hardcoded in source.
++-   If the chatbot's API key is missing, invalid, rate-limited, or the
++    provider is unreachable, the chatbot responds with an explicit
++    "connection failed" message and logs the failure -- it does not
++    crash, and no other feature of the system depends on this key.
++-   Every feature except the chatbot (Privacy Guard, file/Telegram
++    analysis, speech-to-text) works fully with no external API key
++    configured at all.
+ 
+ The system should be evaluated to reduce possible bias caused by:
+ 
+@@ -149,14 +191,21 @@ This system has important limitations:
+ 
+ ## Future Safety Improvements
+ 
+-Possible improvements include:
++Implemented in this iteration (previously listed as future work):
++
++-   ~~Advanced privacy-preserving detection~~ -- done (NER + regex
++    Privacy Guard, applied uniformly across text, file, audio, and
++    chatbot input)
++
++Remaining possible improvements:
+ 
+--   Advanced privacy-preserving machine learning
+--   Better bias evaluation
+--   Human feedback loops
++-   Better bias evaluation across writing styles and languages
++-   Human feedback loops for reviewed cases
+ -   Improved uncertainty estimation
+ -   More robust crisis detection models
+--   Secure deployment practices
++-   Secure, hosted deployment practices (this prototype currently runs
++    locally; a hosted deployment would need its own secrets management
++    beyond a local `.env` file)
+ 
+ ------------------------------------------------------------------------
+ 
+diff --git a/docs/release_notes.md b/docs/release_notes.md
+index 127ba47..6c709e1 100644
+--- a/docs/release_notes.md
++++ b/docs/release_notes.md
+@@ -1,5 +1,91 @@
+ # Release Notes
+ 
++## Version 1.2.0
++
++Release Date
++
++August 2026
++
++------------------------------------------------------------------------
++
++## Overview
++
++Version 1.2.0 extends the safety analysis pipeline to every way a
++conversation can enter the system -- not just typed text -- and adds
++a live conversational interface with the same background safety
++monitoring as every other input channel.
++
++------------------------------------------------------------------------
++
++# What's New in Version 1.2.0
++
++## Privacy Guard -- NER-Based Detection
++
++- Upgraded from regex-only to a combined regex + NER (spaCy
++  `en_core_web_sm`) detection layer
++- Now detects person names, locations, and organizations in addition
++  to emails, phone numbers, URLs, and IPs
++- Falls back to regex-only detection automatically if the NER model
++  isn't available in a given environment, instead of failing
++- Full Privacy Panel added to the dashboard UI, showing exactly what
++  was detected and anonymized per conversation
++
++## Conversation File / Telegram Export Import
++
++- New `POST /analyze/upload` endpoint
++- Parses Telegram Desktop JSON exports (single-chat and the "all
++  chats" wrapper), Telegram plain-text exports, and CSV files into the
++  same internal message format used everywhere else
++- Service events (joined chat, pinned message, etc.) filtered out
++  automatically
++- Duplicate message text across a conversation is analyzed once and
++  cached, instead of re-running the full pipeline for every repeat
++
++## Speech-to-Text
++
++- New `POST /analyze/audio` endpoint, plus in-browser microphone
++  recording in the dashboard
++- Three-tier engine chain: OpenAI Whisper API (if configured) → free
++  Google Web Speech (default) → local Whisper (offline fallback)
++- Transcript runs through the exact same safety pipeline as typed text
++
++## AI Chatbot with Background Safety Monitoring
++
++- New `/chat/start`, `/chat/{session_id}/message`, `/chat/{session_id}`,
++  and `/chat/sessions` endpoints, plus a full Chat page in the
++  dashboard
++- Every message is analyzed by the safety pipeline in the background
++  while the person has a normal conversation with the assistant
++- Uses OpenAI's Responses API, with model/provider/temperature/timeout
++  fully configurable via environment variables (works with any
++  OpenAI-compatible endpoint)
++- Conversation history is windowed before being sent to the model, so
++  cost and latency don't grow unbounded as a chat gets longer
++- Every turn is persisted immediately, so a session can be resumed
++  exactly where it was left
++- Failures (missing/invalid key, timeout, provider outage) return an
++  explicit "connection failed" message rather than a disguised
++  fallback reply
++- Per-session token usage tracking, and rate limiting (15
++  messages/minute, 60 messages/session cap) to protect against
++  runaway API costs
++
++## Bug Fixes
++
++- Fixed a database schema collision: two separate SQLite modules
++  (`src/database` and `backend/database`) were writing to the same
++  physical file with different schemas, causing intermittent `no such
++  column` errors depending on which ran first
++- Fixed the conversation analyzer re-analyzing every prior message on
++  every new call instead of just the new one, which doubled (or, for
++  growing chats, multiplied) pipeline latency unnecessarily
++- Fixed the chatbot silently falling back to a generic reply on every
++  real API call for GPT-5.x-family models, caused by using the legacy
++  `max_tokens` parameter where those models require
++  `max_completion_tokens`
++
++------------------------------------------------------------------------
++
+ ## Version 1.1.0
+ 
+ Release Date
+@@ -133,15 +219,18 @@ The current version supports:
+ 
+ Current testing status:
+ 
+-- ✅ 12 / 12 Tests Passed
+-- ✅ Approximately 80% Test Coverage
++- ✅ 65 / 65 Tests Passed (1 additional test auto-skips if the spaCy
++  NER model isn't installed in a given environment)
+ 
+ Validated modules include:
+ 
+-- API
++- API (including file upload, audio, and chat endpoints)
+ - AI Pipeline
+ - Risk Assessment
+-- Privacy
++- Privacy Guard (regex + NER)
++- Conversation File / Telegram Import Parser
++- Speech-to-Text Transcriber
++- Chatbot (LLM client, rate limiting, session persistence)
+ - Explainability
+ - Database
+ - Full Workflow
+@@ -154,14 +243,16 @@ Main technologies:
+ 
+ - Python
+ - FastAPI
+-- PyTorch
+-- TensorFlow
+-- Transformers
++- Transformers (emotion model)
++- spaCy + Presidio (Privacy Guard NER)
++- SpeechRecognition, faster-whisper (speech-to-text)
++- OpenAI SDK (Responses API -- chatbot + Whisper API)
+ - Scikit-learn
+ - Pandas
+ - NumPy
+ - SQLAlchemy
+ - PyTest
++- React, TypeScript, Vite, Tailwind CSS (frontend)
+ 
+ ------------------------------------------------------------------------
+ 
+@@ -190,14 +281,14 @@ Future versions may assist psychologists by generating explainable conversation
+ 
+ Future development includes:
+ 
+-- Fine-tuned AI models
+-- Larger benchmark datasets
+-- Clinical validation
+-- Interactive dashboards
++- Live token-by-token streaming of chatbot replies to the UI
++- Fine-tuned distress/crisis models (currently rule/lexicon-based)
++- Alembic-based database migrations (dependency already included, not
++  yet wired in)
++- Larger benchmark datasets and clinical validation
+ - Longitudinal conversation analysis
+ - Explainable clinician reports
+-- Early risk prediction
+-- Enterprise deployment
++- Enterprise / hosted deployment
+ 
+ ------------------------------------------------------------------------
+ 
+diff --git a/docs/testing_and_evaluation.md b/docs/testing_and_evaluation.md
+index ec72f88..cd6e3be 100644
+--- a/docs/testing_and_evaluation.md
++++ b/docs/testing_and_evaluation.md
+@@ -69,13 +69,22 @@ different inputs.
+ 
+ Current test execution status:
+ 
+-    12/12 tests passed
++    65/65 tests passed
++    (1 additional test auto-skips if the spaCy NER model isn't
++    installed in a given environment)
+ 
+ The current test suite validates:
+ 
+--   API functionality
++-   API functionality, including file/Telegram upload, audio
++    transcription, and chatbot endpoints
+ -   Full analysis pipeline execution
+ -   Safety decision generation
++-   Privacy Guard (regex + NER detection and anonymization)
++-   Conversation file parsing (Telegram JSON/TXT, CSV)
++-   Speech-to-text engine selection and fallback behavior
++-   Chatbot LLM client, rate limiting, and session persistence
++    (using a mocked LLM client -- no API key required to run the
++    suite)
+ -   Core system behavior
+ 
+ ------------------------------------------------------------------------
