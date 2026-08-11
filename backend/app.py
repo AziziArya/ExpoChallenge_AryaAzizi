@@ -382,9 +382,14 @@ def chat_message(session_id: str, request: ChatMessageRequest):
             },
         )
 
+    # Privacy-by-design: persist the anonymized text, not the raw
+    # message. anonymized_user_texts[-1] is this turn's user message
+    # already run through the Privacy Guard (same text sent to the
+    # LLM above) -- storing anything else would put raw PII at rest
+    # in the database even though it was kept out of the LLM call.
     updated_state = append_turn(
         session_id,
-        user_text=request.text,
+        user_text=anonymized_user_texts[-1],
         user_analysis=user_analysis,
         assistant_reply=reply_result["reply"],
         analyses=analyses,

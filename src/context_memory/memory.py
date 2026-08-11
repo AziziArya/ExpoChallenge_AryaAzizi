@@ -1,3 +1,20 @@
+"""
+NOTE: this module (and the src/database Conversation/Message/Decision
+models it writes to) is an earlier persistence prototype. It is
+*not* the persistence layer the running app actually uses --
+backend/app.py instantiates ConversationMemory() with no database
+session, so in production this only holds state in memory for the
+lifetime of one process and never touches src/database's tables.
+
+The real, wired-up persistence layer is backend/database/ (Conversation,
+ChatSession, ChatMessage), used via backend/services/*.py -- see
+"Persistent Conversation & Safety History" in docs/architecture.md.
+
+Kept here rather than deleted since removing it isn't necessary for
+correctness and this docstring is enough to stop it being mistaken for
+the live persistence path.
+"""
+
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional

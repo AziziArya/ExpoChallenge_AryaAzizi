@@ -179,6 +179,29 @@ def test_chat_sends_anonymized_text_to_llm_not_raw_pii(client, monkeypatch):
     assert "[EMAIL]" in sent_text
 
 
+def test_chat_persists_anonymized_text_not_raw_pii(client):
+    """
+    Privacy-by-design for storage: the same anonymized text that gets
+    sent to the LLM must be what lands in the database, not the raw
+    message. Otherwise PII the Privacy Guard kept out of the LLM call
+    would still end up at rest in chat_messages / chat_sessions.raw_data.
+    """
+
+    session_id = client.post("/chat/start").json()["session_id"]
+
+    client.post(
+        f"/chat/{session_id}/message",
+        json={"text": "Hi, my email is realuser@example.com, feeling kind of low today"},
+    )
+
+    stored = chat_service.get_session(session_id)
+    stored_user_messages = [m["text"] for m in stored["messages"] if m["role"] == "user"]
+
+    assert len(stored_user_messages) == 1
+    assert "realuser@example.com" not in stored_user_messages[0]
+    assert "[EMAIL]" in stored_user_messages[0]
+
+
 def test_chat_does_not_reanalyze_prior_messages_each_turn(client, monkeypatch):
     """
     Regression test for the incremental analysis fix: without it, turn N

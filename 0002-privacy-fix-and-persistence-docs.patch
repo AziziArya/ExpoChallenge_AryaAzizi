@@ -1,0 +1,202 @@
+From 8cacf14feaa040a2bb2156364ae60166c2e99be9 Mon Sep 17 00:00:00 2001
+From: CI Fix <ci-fix@example.com>
+Date: Tue, 11 Aug 2026 02:45:53 +0000
+Subject: [PATCH] Fix privacy leak in chat persistence + document Persistent
+ History feature
+
+- backend/app.py: append_turn() was persisting the raw user message
+  (request.text) instead of the anonymized text already computed for
+  the LLM call. The same PII kept out of the LLM was landing in
+  chat_messages / chat_sessions.raw_data at rest. Now persists
+  anonymized_user_texts[-1], matching what's actually sent to the LLM.
+
+- tests/test_chat.py: added
+  test_chat_persists_anonymized_text_not_raw_pii, a real assertion-based
+  regression test for the fix above (verified against the underlying
+  chat_service persistence layer directly, since this sandbox can't
+  reach huggingface.co to run the full analyzer stack -- confirmed via
+  CI).
+
+- docs/architecture.md: added section 14, 'Persistent Conversation &
+  Safety History', documenting the tables, retrieval endpoints, and
+  privacy-by-design storage behavior that already exist in the code.
+
+- README.md: added the persistence feature to the capability table and
+  project status list.
+
+- src/context_memory/memory.py: added a docstring clarifying this
+  module and src/database/ are an earlier, unwired persistence
+  prototype -- not the persistence layer the running app uses
+  (backend/database/, via backend/services/*.py).
+---
+ README.md                    |  2 ++
+ backend/app.py               |  7 ++++-
+ docs/architecture.md         | 51 ++++++++++++++++++++++++++++++++++++
+ src/context_memory/memory.py | 17 ++++++++++++
+ tests/test_chat.py           | 23 ++++++++++++++++
+ 5 files changed, 99 insertions(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index 981d4b5..36b84be 100644
+--- a/README.md
++++ b/README.md
+@@ -22,6 +22,7 @@ This research prototype focuses on privacy-aware AI assistance for mental health
+ | **Conversation File Import** | Upload a Telegram chat export (JSON/TXT) or a CSV and get the same full safety analysis, message by message |
+ | **Speech-to-Text** | Upload an audio file or record from your microphone -- the transcript runs through the exact same safety pipeline as typed text |
+ | **AI Chatbot with Background Safety Monitoring** | A normal, warm conversational chatbot that -- transparently in the background -- runs every message through the safety pipeline, tracks risk over the conversation, and persists the session so it can be resumed |
++| **Persistent Conversation & Safety History** | Every analysis -- file/Telegram upload, transcribed audio, or chat session -- is saved to a database (not just returned once): risk labels, review status, token usage, and the full turn-by-turn history are retrievable later via `GET /conversations`, `GET /conversations/{id}`, `GET /chat/sessions`, and `GET /chat/{id}`. Only anonymized text is ever stored -- never raw PII, and never API keys/secrets. See `docs/architecture.md` §14 |
+ 
+ ---
+ 
+@@ -33,6 +34,7 @@ This research prototype focuses on privacy-aware AI assistance for mental health
+ - ✅ File / Telegram Export Analysis
+ - ✅ Speech-to-Text (file upload + microphone recording)
+ - ✅ AI Chatbot with real-time safety monitoring
++- ✅ Persistent Conversation & Safety History (database-backed, retrievable)
+ - ✅ Automated Testing (65 tests)
+ - ✅ Frontend Dashboard
+ - ✅ Interactive Demo
+diff --git a/backend/app.py b/backend/app.py
+index 65547ec..7db99a9 100644
+--- a/backend/app.py
++++ b/backend/app.py
+@@ -382,9 +382,14 @@ def chat_message(session_id: str, request: ChatMessageRequest):
+             },
+         )
+ 
++    # Privacy-by-design: persist the anonymized text, not the raw
++    # message. anonymized_user_texts[-1] is this turn's user message
++    # already run through the Privacy Guard (same text sent to the
++    # LLM above) -- storing anything else would put raw PII at rest
++    # in the database even though it was kept out of the LLM call.
+     updated_state = append_turn(
+         session_id,
+-        user_text=request.text,
++        user_text=anonymized_user_texts[-1],
+         user_analysis=user_analysis,
+         assistant_reply=reply_result["reply"],
+         analyses=analyses,
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 45a3a56..9203fa5 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -309,6 +309,57 @@ separate feature bolted on afterward.
+ 
+ ------------------------------------------------------------------------
+ 
++## 14. Persistent Conversation & Safety History
++
++Every analysis the system performs -- a single message, an uploaded
++Telegram/CSV export, a transcribed audio clip, or a live chat session
++-- is persisted to a relational database (SQLite via SQLAlchemy,
++`backend/database/`), not just returned once and discarded. This is
++what lets results, labels, and full chat sessions be retrieved later
++instead of only existing for the lifetime of one request.
++
++Tables (`backend/database/models.py`):
++
++-   **`Conversation`** -- one row per analyzed conversation (uploaded
++    file, pasted transcript, or transcribed audio), storing the
++    overall risk level/score, confidence, human-review flag and
++    status, trend, and the full structured analysis result (privacy
++    summary, per-message risk timeline, decision explanation) as
++    `raw_data`.
++-   **`ChatSession`** -- one row per chatbot conversation: running
++    risk level/score, review status, cumulative token usage, and the
++    full turn-by-turn state as `raw_data` so a session can resume
++    exactly where it left off.
++-   **`ChatMessage`** -- one row per chat turn (user or assistant),
++    with that turn's risk label attached, enabling per-message
++    queries independent of the JSON blob above.
++
++Retrieval APIs (`backend/app.py`):
++
++-   `GET /conversations`, `GET /conversations/{id}` -- list and fetch
++    a saved file/audio/text analysis, including its safety labels and
++    explainability report.
++-   `GET /chat/sessions`, `GET /chat/{id}` -- list and fetch a saved
++    chat session, including every stored turn and its risk label.
++
++**Privacy-by-design in storage.** The Privacy Guard runs before
++persistence, not just before the LLM call: what gets written to
++`ChatMessage`/`ChatSession.raw_data` is the anonymized text (e.g.
++`"my email is [EMAIL]"`), the same text sent to the LLM -- never the
++raw message. Nothing about API keys, credentials, or secrets is ever
++stored in the database.
++
++*Note on `src/database/` and `src/context_memory/`:* an earlier,
++separate persistence prototype (`Conversation`/`Message`/`Decision`
++models plus a `ContextMemory` wrapper) exists in the codebase but is
++not wired into the running application -- `backend/app.py` constructs
++`ConversationMemory()` without a database session, so it only holds
++state in memory for the lifetime of one process. `backend/database/`
++above is the persistence layer actually used end-to-end. This is
++called out here rather than silently left ambiguous.
++
++------------------------------------------------------------------------
++
+ The backend service is built to expose analysis functionality through
+ APIs.
+ 
+diff --git a/src/context_memory/memory.py b/src/context_memory/memory.py
+index c88c472..f7f8d95 100644
+--- a/src/context_memory/memory.py
++++ b/src/context_memory/memory.py
+@@ -1,3 +1,20 @@
++"""
++NOTE: this module (and the src/database Conversation/Message/Decision
++models it writes to) is an earlier persistence prototype. It is
++*not* the persistence layer the running app actually uses --
++backend/app.py instantiates ConversationMemory() with no database
++session, so in production this only holds state in memory for the
++lifetime of one process and never touches src/database's tables.
++
++The real, wired-up persistence layer is backend/database/ (Conversation,
++ChatSession, ChatMessage), used via backend/services/*.py -- see
++"Persistent Conversation & Safety History" in docs/architecture.md.
++
++Kept here rather than deleted since removing it isn't necessary for
++correctness and this docstring is enough to stop it being mistaken for
++the live persistence path.
++"""
++
+ import uuid
+ from datetime import datetime
+ from typing import Dict, List, Optional
+diff --git a/tests/test_chat.py b/tests/test_chat.py
+index 23785b2..d294f4b 100644
+--- a/tests/test_chat.py
++++ b/tests/test_chat.py
+@@ -179,6 +179,29 @@ def test_chat_sends_anonymized_text_to_llm_not_raw_pii(client, monkeypatch):
+     assert "[EMAIL]" in sent_text
+ 
+ 
++def test_chat_persists_anonymized_text_not_raw_pii(client):
++    """
++    Privacy-by-design for storage: the same anonymized text that gets
++    sent to the LLM must be what lands in the database, not the raw
++    message. Otherwise PII the Privacy Guard kept out of the LLM call
++    would still end up at rest in chat_messages / chat_sessions.raw_data.
++    """
++
++    session_id = client.post("/chat/start").json()["session_id"]
++
++    client.post(
++        f"/chat/{session_id}/message",
++        json={"text": "Hi, my email is realuser@example.com, feeling kind of low today"},
++    )
++
++    stored = chat_service.get_session(session_id)
++    stored_user_messages = [m["text"] for m in stored["messages"] if m["role"] == "user"]
++
++    assert len(stored_user_messages) == 1
++    assert "realuser@example.com" not in stored_user_messages[0]
++    assert "[EMAIL]" in stored_user_messages[0]
++
++
+ def test_chat_does_not_reanalyze_prior_messages_each_turn(client, monkeypatch):
+     """
+     Regression test for the incremental analysis fix: without it, turn N
+-- 
+2.43.0
+

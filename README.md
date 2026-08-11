@@ -22,6 +22,7 @@ This research prototype focuses on privacy-aware AI assistance for mental health
 | **Conversation File Import** | Upload a Telegram chat export (JSON/TXT) or a CSV and get the same full safety analysis, message by message |
 | **Speech-to-Text** | Upload an audio file or record from your microphone -- the transcript runs through the exact same safety pipeline as typed text |
 | **AI Chatbot with Background Safety Monitoring** | A normal, warm conversational chatbot that -- transparently in the background -- runs every message through the safety pipeline, tracks risk over the conversation, and persists the session so it can be resumed |
+| **Persistent Conversation & Safety History** | Every analysis -- file/Telegram upload, transcribed audio, or chat session -- is saved to a database (not just returned once): risk labels, review status, token usage, and the full turn-by-turn history are retrievable later via `GET /conversations`, `GET /conversations/{id}`, `GET /chat/sessions`, and `GET /chat/{id}`. Only anonymized text is ever stored -- never raw PII, and never API keys/secrets. See `docs/architecture.md` §14 |
 
 ---
 
@@ -33,6 +34,7 @@ This research prototype focuses on privacy-aware AI assistance for mental health
 - ✅ File / Telegram Export Analysis
 - ✅ Speech-to-Text (file upload + microphone recording)
 - ✅ AI Chatbot with real-time safety monitoring
+- ✅ Persistent Conversation & Safety History (database-backed, retrievable)
 - ✅ Automated Testing (65 tests)
 - ✅ Frontend Dashboard
 - ✅ Interactive Demo

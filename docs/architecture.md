@@ -309,6 +309,57 @@ separate feature bolted on afterward.
 
 ------------------------------------------------------------------------
 
+## 14. Persistent Conversation & Safety History
+
+Every analysis the system performs -- a single message, an uploaded
+Telegram/CSV export, a transcribed audio clip, or a live chat session
+-- is persisted to a relational database (SQLite via SQLAlchemy,
+`backend/database/`), not just returned once and discarded. This is
+what lets results, labels, and full chat sessions be retrieved later
+instead of only existing for the lifetime of one request.
+
+Tables (`backend/database/models.py`):
+
+-   **`Conversation`** -- one row per analyzed conversation (uploaded
+    file, pasted transcript, or transcribed audio), storing the
+    overall risk level/score, confidence, human-review flag and
+    status, trend, and the full structured analysis result (privacy
+    summary, per-message risk timeline, decision explanation) as
+    `raw_data`.
+-   **`ChatSession`** -- one row per chatbot conversation: running
+    risk level/score, review status, cumulative token usage, and the
+    full turn-by-turn state as `raw_data` so a session can resume
+    exactly where it left off.
+-   **`ChatMessage`** -- one row per chat turn (user or assistant),
+    with that turn's risk label attached, enabling per-message
+    queries independent of the JSON blob above.
+
+Retrieval APIs (`backend/app.py`):
+
+-   `GET /conversations`, `GET /conversations/{id}` -- list and fetch
+    a saved file/audio/text analysis, including its safety labels and
+    explainability report.
+-   `GET /chat/sessions`, `GET /chat/{id}` -- list and fetch a saved
+    chat session, including every stored turn and its risk label.
+
+**Privacy-by-design in storage.** The Privacy Guard runs before
+persistence, not just before the LLM call: what gets written to
+`ChatMessage`/`ChatSession.raw_data` is the anonymized text (e.g.
+`"my email is [EMAIL]"`), the same text sent to the LLM -- never the
+raw message. Nothing about API keys, credentials, or secrets is ever
+stored in the database.
+
+*Note on `src/database/` and `src/context_memory/`:* an earlier,
+separate persistence prototype (`Conversation`/`Message`/`Decision`
+models plus a `ContextMemory` wrapper) exists in the codebase but is
+not wired into the running application -- `backend/app.py` constructs
+`ConversationMemory()` without a database session, so it only holds
+state in memory for the lifetime of one process. `backend/database/`
+above is the persistence layer actually used end-to-end. This is
+called out here rather than silently left ambiguous.
+
+------------------------------------------------------------------------
+
 The backend service is built to expose analysis functionality through
 APIs.
 
