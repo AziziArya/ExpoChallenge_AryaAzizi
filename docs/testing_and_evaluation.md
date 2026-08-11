@@ -69,7 +69,7 @@ different inputs.
 
 Current test execution status:
 
-    65/65 tests passed
+    66/66 tests passed
     (1 additional test auto-skips if the spaCy NER model isn't
     installed in a given environment)
 

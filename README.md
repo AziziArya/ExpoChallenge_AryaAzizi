@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Release](https://img.shields.io/github/v/release/AziziArya/ExpoChallenge_AryaAzizi)
-![Tests](https://img.shields.io/badge/Tests-65%2F65-success)
+![Tests](https://img.shields.io/badge/Tests-66%2F66-success)
 ![CI](https://github.com/AziziArya/ExpoChallenge_AryaAzizi/actions/workflows/tests.yml/badge.svg)
 ![Code Quality](https://github.com/AziziArya/ExpoChallenge_AryaAzizi/actions/workflows/code_quality.yml/badge.svg)
 
@@ -35,7 +35,7 @@ This research prototype focuses on privacy-aware AI assistance for mental health
 - ✅ Speech-to-Text (file upload + microphone recording)
 - ✅ AI Chatbot with real-time safety monitoring
 - ✅ Persistent Conversation & Safety History (database-backed, retrievable)
-- ✅ Automated Testing (65 tests)
+- ✅ Automated Testing (67 tests)
 - ✅ Frontend Dashboard
 - ✅ Interactive Demo
 
@@ -133,7 +133,7 @@ To confirm the chatbot is using the real API (not the "connection failed" fallba
 pytest -v
 ```
 
-Current status: **65 / 65 tests passed** (1 additional test auto-skips if the spaCy NER model isn't installed in a given environment -- Privacy Guard falls back to regex-only detection in that case rather than failing).
+Current status: **66 / 66 tests passed** (1 additional test auto-skips if the spaCy NER model isn't installed in a given environment -- Privacy Guard falls back to regex-only detection in that case rather than failing).
 
 All tests run without needing `OPENAI_API_KEY` set -- the chatbot's tests use a mocked LLM client.
 
@@ -188,7 +188,7 @@ src/
   speech_to_text/     Audio transcription (OpenAI Whisper API / free Google / local Whisper)
   chatbot/            LLM client (OpenAI Responses API) + rate limiting
   emotion_analyzer/, distress_detector/, crisis_detector/, ...  individual analysis modules
-tests/              65 automated tests
+tests/              67 automated tests
 docs/               Architecture, API, and design documentation
 mhsa-frontend-source/  React dashboard (includes the Chat page)
 ```

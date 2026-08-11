@@ -1,5 +1,75 @@
 # Release Notes
 
+## Version 1.2.1
+
+Release Date
+
+August 2026
+
+------------------------------------------------------------------------
+
+## Overview
+
+Bug-fix and hardening release on top of 1.2.0 -- no new user-facing
+features, but two correctness/privacy issues found during review are
+fixed, and the Persistent History capability that already existed in
+1.2.0's database layer is now properly documented and surfaced in the
+UI.
+
+------------------------------------------------------------------------
+
+# What's New in Version 1.2.1
+
+## CI Reliability
+
+- Chat tests no longer depend on the absence of a real `OPENAI_API_KEY`
+  in the environment -- `tests/conftest.py` now locks the variable to
+  an empty value at test-collection time, so `load_dotenv()` in
+  `backend/app.py` can never pull a working key from a local/CI `.env`
+  into the test session. Fixes a flaky/incorrect
+  `chatbot_mode == "error"` assertion in `test_chat.py`.
+- The chatbot's system prompt was reworded (semantics unchanged) so
+  its required safety language ("do not diagnose", deferring to the
+  safety analyzer, encouraging human support) is asserted verbatim by
+  `test_llm_client.py`, matching the intended safety contract.
+
+## Privacy Fix -- Chat Persistence
+
+- The live chat endpoint was anonymizing user messages before sending
+  them to the LLM, but persisting the **raw** (pre-anonymization) text
+  to the database. Personal information that was correctly kept out of
+  the LLM call was still landing at rest in `chat_messages` /
+  `chat_sessions.raw_data`. Fixed: the same anonymized text sent to the
+  LLM is now what gets persisted. Covered by a new regression test,
+  `test_chat_persists_anonymized_text_not_raw_pii`.
+
+## Persistent Conversation & Safety History -- Documented and Surfaced
+
+- Added `docs/architecture.md` §14 describing the database tables
+  (`Conversation`, `ChatSession`, `ChatMessage`), the retrieval
+  endpoints (`GET /conversations`, `GET /conversations/{id}`,
+  `GET /chat/sessions`, `GET /chat/{id}`), and the privacy-by-design
+  storage behavior -- this persistence layer existed in the code since
+  1.2.0 but wasn't previously documented as a standalone capability.
+- New **Chat History** page in the frontend (`/chat-history`), listing
+  saved chat sessions via `GET /chat/sessions` -- mirrors the existing
+  file/audio `History` page, which only covered `/conversations`.
+- Clarified in `src/context_memory/memory.py` that this module (and
+  `src/database/`) is an earlier, unwired persistence prototype, not
+  the persistence layer the running app actually uses
+  (`backend/database/`).
+
+## Housekeeping
+
+- Removed stray `.patch` files that had been accidentally committed to
+  the repository root.
+- Test count corrected across README/docs: 67 automated tests (66 run
+  and pass; 1 auto-skips without the spaCy NER model installed),
+  up from the previously documented 65 -- the count had drifted out of
+  sync with the code in the 1.2.0 release.
+
+------------------------------------------------------------------------
+
 ## Version 1.2.0
 
 Release Date
