@@ -75,7 +75,7 @@ function buildMessages(data:any):Message[] {
           new Date().toISOString(),
 
         text:
-          item.message ?? "",
+          item.privacy?.anonymized_text ?? item.message ?? "",
 
 
         emotionIntensity:
