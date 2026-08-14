@@ -23,8 +23,15 @@ def client(monkeypatch):
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
 
-    test_engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
-    TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+    test_engine = create_engine(
+        f"sqlite:///{path}",
+        connect_args={"check_same_thread": False},
+    )
+    TestSessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=test_engine,
+    )
 
     Base.metadata.create_all(bind=test_engine)
 
@@ -32,9 +39,12 @@ def client(monkeypatch):
 
     from backend.app import app
 
-    yield TestClient(app)
-
-    os.unlink(path)
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        test_engine.dispose()
+        os.unlink(path)
 
 
 def test_chat_start_returns_session_id(client):
@@ -210,6 +220,7 @@ def test_chat_does_not_reanalyze_prior_messages_each_turn(client, monkeypatch):
     With it, each turn should only analyze the newest message, so 5
     messages = 5 analyze() calls total.
     """
+
     from backend.app import analyzer as backend_analyzer
 
     call_count = {"n": 0}
